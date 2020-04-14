@@ -19,21 +19,20 @@ import (
 	. "net/http"
 	"os"
 
-	//"os"
 	"regexp"
 	"time"
 
 	"github.com/sirupsen/logrus"
-	"github.com/pborman/uuid"
 
+	"github.com/duyanghao/eagle/p2p-client/btclient"
 	"github.com/duyanghao/eagle/proxy/exception"
 	"github.com/duyanghao/eagle/proxy/global"
-	"github.com/duyanghao/eagle/p2p-client/btclient"
 )
 
 type ProxyRoundTripper struct {
-	Round  *Transport
-	Round2 RoundTripper
+	Round     *Transport
+	Round2    RoundTripper
+	P2PClient *btclient.BtEngine
 }
 
 var proxyRoundTripper = &ProxyRoundTripper{
@@ -48,7 +47,8 @@ var proxyRoundTripper = &ProxyRoundTripper{
 		ExpectContinueTimeout: 1 * time.Second,
 		TLSClientConfig:       &tls.Config{InsecureSkipVerify: true},
 	},
-	Round2: NewFileTransport(Dir("/")),
+	Round2:    NewFileTransport(Dir("/")),
+	P2PClient: btclient.NewBtEngine("/data/", []string{}, nil),
 }
 
 var compiler = regexp.MustCompile("^.+/blobs/sha256.*$")
@@ -85,7 +85,7 @@ func (roundTripper *ProxyRoundTripper) RoundTrip(req *Request) (*Response, error
 
 func (roundTripper *ProxyRoundTripper) download(req *Request, urlString string) (*Response, error) {
 	//use P2PClient to download
-	if dstPath, err := btclient.DownloadByP2PClient(urlString, req.Header, uuid.New()); err == nil {
+	if dstPath, err := roundTripper.P2PClient.DownloadLayer(urlString); err == nil {
 		defer os.Remove(dstPath)
 		if fileReq, err := NewRequest("GET", "file:///"+dstPath, nil); err == nil {
 			response, err := proxyRoundTripper.Round2.RoundTrip(fileReq)

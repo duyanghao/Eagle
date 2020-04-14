@@ -1,9 +1,7 @@
-eagle
+Eagle
 =====
 
-# OverView
-
-eagle is a lightweight and intelligent p2p based docker image distribution system.
+Eagle is a lightweight and intelligent p2p based docker image distribution system.
 
 <img src="https://github.com/duyanghao/eagle/blob/master/docs/images/logo.png" width=200px/>
 
@@ -13,7 +11,7 @@ eagle is a lightweight and intelligent p2p based docker image distribution syste
 * High-availability: No component is a single point of failure.
 * Pluggable storage options. Eagle plugs into reliable blob storage options, like S3 or local FileSystem. The storage interface is simple and new options are easy to add.
 * Peer optimal arithmetic: Eagle supports peer optimal arithmetic to improve performance and save cross-IDC bandwidth.  
-* I/O speed limit: Many downloading tools(wget/curl) only have rate limit for the current download task, but eagle also provides rate limit for the entire host.
+* Host level speed limit: Many downloading tools(wget/curl) only have rate limit for the current download task, but eagle also provides rate limit for the entire host.
 * Strong consistency: Eagle can guarantee that all downloaded files must be consistent even if users do not provide any check code(MD5).
 * Lightweight: Eagle consists of only several necessary components, which makes it understandable, maintainable and easy-to-use.
 
