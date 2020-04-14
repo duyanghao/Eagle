@@ -21,7 +21,7 @@ eagle is a lightweight and intelligent p2p based docker image distribution syste
 
 The principle of eagle is quite simple and can be illustrated as follows:
 
-![](images/eagle_arch.png)
+![](docs/images/eagle_arch.png)
 
 # Comparison With Other Projects
 
@@ -35,7 +35,7 @@ Eagle's tracker only helps orchestrate the connection graph, and leaves negotiat
 
 ## [kraken from uber](https://github.com/uber/kraken)
 
-[Kraken] uses several components, such as `Agent`, `Origin`, `Tracker`, `Proxy` and `Build-Index`, combined with its own designed driver protocol to build a p2p based docker distribution system.      
+Kraken uses several components, such as `Agent`, `Origin`, `Tracker`, `Proxy` and `Build-Index`, combined with its own designed driver protocol to build a p2p based docker distribution system.      
  
 Eagle uses almost the same components with [kraken](https://github.com/uber/kraken), but it is more compact as it uses [BitTorrent protocol](http://bittorrent.org/beps/bep_0003.html) underlayer and drops some unessential components.   
 
