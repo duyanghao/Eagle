@@ -1,10 +1,9 @@
-package btclient
+package bt
 
 import (
-	"bytes"
 	"encoding/hex"
 	"fmt"
-	"github.com/duyanghao/eagle/pkg/utils"
+	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -24,7 +23,7 @@ import (
 )
 
 var (
-	ErrBtEngineNotStart = fmt.Errorf("BT engine not started")
+	ErrSeederNotStart = fmt.Errorf("Seeder not started")
 )
 
 const DefaultUploadRateLimit = 50 * 1024 * 1024 // 50Mb/s
@@ -53,8 +52,8 @@ type idInfo struct {
 	Count    int
 }
 
-// BtEngine backed by anacrolix/torrent
-type BtEngine struct {
+// Seeder backed by anacrolix/torrent
+type Seeder struct {
 	mut sync.Mutex
 
 	client     *torrent.Client
@@ -65,7 +64,6 @@ type BtEngine struct {
 	idInfos  map[string]*idInfo // image ID -> InfoHash
 	rootDir  string
 	trackers []string
-	seeders  []string
 
 	torrentDir string
 	dataDir    string
@@ -73,22 +71,21 @@ type BtEngine struct {
 	started bool
 }
 
-func NewBtEngine(root string, trackers, seeders []string, c *Config) *BtEngine {
+func NewSeeder(root string, trackers []string, c *Config) *Seeder {
 	dataDir := path.Join(root, "data")
 	torrentDir := path.Join(root, "torrents")
 	if c == nil {
 		c = &Config{
 			EnableUpload:      true,
 			EnableSeeding:     true,
-			IncomingPort:      50007,
+			IncomingPort:      50017,
 			UploadRateLimit:   DefaultUploadRateLimit,
 			DownloadRateLimit: DefaultDownloadRateLimit,
 		}
 	}
-	return &BtEngine{
+	return &Seeder{
 		rootDir:    root,
 		trackers:   trackers,
-		seeders:    seeders,
 		dataDir:    dataDir,
 		torrentDir: torrentDir,
 		config:     c,
@@ -110,25 +107,25 @@ func NewBtEngine(root string, trackers, seeders []string, c *Config) *BtEngine {
 	}
 }
 
-func (e *BtEngine) Run() error {
-	if err := os.MkdirAll(e.dataDir, 0700); err != nil && !os.IsExist(err) {
+func (s *Seeder) Run() error {
+	if err := os.MkdirAll(s.dataDir, 0700); err != nil && !os.IsExist(err) {
 		return nil
 	}
-	if err := os.MkdirAll(e.torrentDir, 0700); err != nil && !os.IsExist(err) {
+	if err := os.MkdirAll(s.torrentDir, 0700); err != nil && !os.IsExist(err) {
 		return nil
 	}
 
-	if e.client != nil {
-		e.client.Close()
+	if s.client != nil {
+		s.client.Close()
 		time.Sleep(1 * time.Second)
 	}
 
-	c := e.config
+	c := s.config
 	if c.IncomingPort <= 0 {
 		return fmt.Errorf("Invalid incoming port (%d)", c.IncomingPort)
 	}
 	tc := torrent.ClientConfig{
-		DataDir:    e.dataDir,
+		DataDir:    s.dataDir,
 		NoUpload:   !c.EnableUpload,
 		Seed:       c.EnableSeeding,
 		DisableUTP: true,
@@ -139,12 +136,12 @@ func (e *BtEngine) Run() error {
 		return err
 	}
 
-	e.client = client
+	s.client = client
 
 	// for StartSeed
-	e.started = true
+	s.started = true
 
-	files, err := ioutil.ReadDir(e.dataDir)
+	files, err := ioutil.ReadDir(s.dataDir)
 	if err != nil {
 		return err
 	}
@@ -160,12 +157,12 @@ func (e *BtEngine) Run() error {
 		}
 
 		id := ss[0]
-		tf := e.GetTorrentFilePath(id)
+		tf := s.GetTorrentFilePath(id)
 		if _, err = os.Lstat(tf); err != nil {
 			continue
 		}
 
-		if err = e.StartSeed(id); err != nil {
+		if err = s.StartSeed(id); err != nil {
 			log.Errorf("Start seed %s failed: %v", id, err)
 		}
 	}
@@ -173,9 +170,9 @@ func (e *BtEngine) Run() error {
 	return nil
 }
 
-func (e *BtEngine) GetTorrentFromSeeder(r *http.Request, blobUrl string) ([]byte, error) {
+func (s *Seeder) getDataFromOrigin(r *http.Request) ([]byte, error) {
 	// construct encoded endpoint
-	Url, err := url.Parse(fmt.Sprintf("http://%s", e.seeders[0]))
+	Url, err := url.Parse(fmt.Sprintf("http://%s", r.URL.Host))
 	if err != nil {
 		return nil, err
 	}
@@ -186,7 +183,7 @@ func (e *BtEngine) GetTorrentFromSeeder(r *http.Request, blobUrl string) ([]byte
 		return nil, err
 	}
 	// use httpClient to send request
-	rsp, err := e.httpClient.Do(req)
+	rsp, err := s.httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -194,81 +191,105 @@ func (e *BtEngine) GetTorrentFromSeeder(r *http.Request, blobUrl string) ([]byte
 	defer rsp.Body.Close()
 	// check status code
 	if rsp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("GetTorrentFromSeeder rsp error: %v", rsp)
+		return nil, fmt.Errorf("GetDataFromOrigin rsp error: %v", rsp)
 	}
 	// parse rsp body
 	t, err := ioutil.ReadAll(rsp.Body)
 	return t, err
 }
 
-func (e *BtEngine) DownloadLayer(req *http.Request, blobUrl string) (string, error) {
-	digest := blobUrl[strings.LastIndex(blobUrl, "/")+1:]
+func (s *Seeder) getMetaData(r *http.Request, id string) error {
+	s.mut.Lock()
+	defer s.mut.Unlock()
+	// step1 - check whether or not the torrent exists
+	torrentFile := s.GetTorrentFilePath(id)
+	if _, err := os.Stat(torrentFile); err == nil {
+		log.Debugf(fmt.Sprintf("torrent of layer: %s exists alyready, let's return directly ...", id))
+		return nil
+	} else if !os.IsNotExist(err) {
+		return err
+	}
+	// step2 - get data from origin
+	log.Debugf(fmt.Sprintf("torrent of layer: %s not found, let's fetch data from origin ...", id))
+	data, err := s.getDataFromOrigin(r)
+	if err != nil {
+		return err
+	}
+	// step3 - generate layerFile
+	log.Debugf(fmt.Sprintf("generate dataFile of layer: %s ...", id))
+	layerFile := s.GetFilePath(id)
+	err = ioutil.WriteFile(layerFile, data, 0644)
+	if err != nil {
+		return err
+	}
+	// step4 - start seed
+	log.Debugf(fmt.Sprintf("start to seed layer: %s ...", id))
+	return s.StartSeed(id)
+}
+
+func (s *Seeder) GetMetaData(w http.ResponseWriter, r *http.Request) {
+	log.Debugf("access: %s", r.URL.String())
+	if !s.started {
+		http.Error(w, ErrSeederNotStart.Error(), http.StatusInternalServerError)
+		return
+	}
+	digest := r.URL.Path[strings.LastIndex(r.URL.Path, "/")+1:]
 	id := distdigests.Digest(digest).Encoded()
-	log.Debugf("Start leeching layer %s", id)
-	t, err := e.GetTorrentFromSeeder(req, blobUrl)
+	log.Debugf("start get metadata of layer %s", id)
+	err := s.getMetaData(r, id)
 	if err != nil {
-		log.Errorf("Get torrent data from seeder for %s failed: %v", id, err)
-		return "", err
+		http.Error(w, fmt.Sprintf("get torrent failed: %v", err), http.StatusInternalServerError)
+		return
 	}
-
-	// Load torrent data
-	reader := bytes.NewBuffer(t)
-	metaInfo, err := metainfo.Load(reader)
+	torrentFile := s.GetTorrentFilePath(id)
+	f, err := os.Open(torrentFile)
 	if err != nil {
-		return "", fmt.Errorf("Load torrent file failed: %v", err)
+		http.Error(w, fmt.Sprintf("open torrent failed: %v", err), http.StatusInternalServerError)
+		return
 	}
-	info, err := metaInfo.UnmarshalInfo()
-	if err != nil {
-		return "", fmt.Errorf("UnmarshalInfo failed: %v", err)
+	if _, err := io.Copy(w, f); err != nil {
+		http.Error(w, fmt.Sprintf("copy torrent failed: %v", err), http.StatusInternalServerError)
+		return
 	}
-	progress := utils.NewProgressDownload(id, int(info.TotalLength()), os.Stdout)
-	// Download layer file
-	if err := e.StartLeecher(id, metaInfo, progress); err != nil {
-		log.Errorf("Download layer %s failed: %v", id, err)
-		return "", err
-	} else {
-		log.Infof("Download layer %s success", id)
-	}
-	return e.GetFilePath(id), nil
 }
 
-func (e *BtEngine) Started() bool {
-	e.mut.Lock()
-	defer e.mut.Unlock()
-	return e.started
+func (s *Seeder) Started() bool {
+	s.mut.Lock()
+	defer s.mut.Unlock()
+	return s.started
 }
 
-func (e *BtEngine) RootDir() string {
-	return e.rootDir
+func (s *Seeder) RootDir() string {
+	return s.rootDir
 }
 
-func (e *BtEngine) GetTorrentFilePath(id string) string {
-	return path.Join(e.rootDir, "torrents", id+".torrent")
+func (s *Seeder) GetTorrentFilePath(id string) string {
+	return path.Join(s.rootDir, "torrents", id+".torrent")
 }
 
-func (e *BtEngine) GetFilePath(id string) string {
-	return path.Join(e.rootDir, "data", id+".layer")
+func (s *Seeder) GetFilePath(id string) string {
+	return path.Join(s.rootDir, "data", id+".layer")
 }
 
-func (e *BtEngine) StartSeed(id string) error {
-	if !e.started {
-		return ErrBtEngineNotStart
+func (s *Seeder) StartSeed(id string) error {
+	if !s.started {
+		return ErrSeederNotStart
 	}
 
-	e.mut.Lock()
-	defer e.mut.Unlock()
+	s.mut.Lock()
+	defer s.mut.Unlock()
 
-	info, ok := e.idInfos[id]
+	info, ok := s.idInfos[id]
 	if ok && info.Started {
 		info.Count++
 		return nil
 	}
 
-	tf := e.GetTorrentFilePath(id)
+	tf := s.GetTorrentFilePath(id)
 	if _, err := os.Lstat(tf); err != nil {
 		// Torrent file not exist, create it
 		log.Debugf("Create torrent file for %s", id)
-		if err = e.createTorrent(id); err != nil {
+		if err = s.createTorrent(id); err != nil {
 			return err
 		}
 	}
@@ -278,15 +299,15 @@ func (e *BtEngine) StartSeed(id string) error {
 		return fmt.Errorf("Load torrent file failed: %v", err)
 	}
 
-	tt, err := e.client.AddTorrent(metaInfo)
+	tt, err := s.client.AddTorrent(metaInfo)
 	if err != nil {
 		return fmt.Errorf("Add torrent failed: %v", err)
 	}
 
-	t := e.addTorrent(tt)
+	t := s.addTorrent(tt)
 	go func() {
 		<-t.tt.GotInfo()
-		err = e.startTorrent(t.InfoHash)
+		err = s.startTorrent(t.InfoHash)
 		if err != nil {
 			log.Errorf("Start torrent %v failed: %v", t.InfoHash, err)
 		} else {
@@ -294,7 +315,7 @@ func (e *BtEngine) StartSeed(id string) error {
 		}
 	}()
 
-	e.idInfos[id] = &idInfo{
+	s.idInfos[id] = &idInfo{
 		Id:       id,
 		InfoHash: t.InfoHash,
 		Started:  true,
@@ -302,71 +323,24 @@ func (e *BtEngine) StartSeed(id string) error {
 	return nil
 }
 
-func (e *BtEngine) StartLeecher(id string, metaInfo *metainfo.MetaInfo, p *utils.ProgressDownload) error {
-	if !e.started {
-		return ErrBtEngineNotStart
-	}
-
-	e.mut.Lock()
-
-	info, ok := e.idInfos[id]
-	if ok && info.Started {
-		info.Count++
-		e.mut.Unlock()
-		return nil
-	}
-
-	tt, err := e.client.AddTorrent(metaInfo)
-	if err != nil {
-		e.mut.Unlock()
-		return fmt.Errorf("Add torrent failed: %v", err)
-	}
-
-	t := e.addTorrent(tt)
-	go func() {
-		<-t.tt.GotInfo()
-		err = e.startTorrent(t.InfoHash)
-		if err != nil {
-			log.Errorf("start torrent %v failed: %v", t.InfoHash, err)
-		} else {
-			log.Infof("start torrent %v success", t.InfoHash)
-		}
-	}()
-
-	e.idInfos[id] = &idInfo{
-		Id:       id,
-		InfoHash: t.InfoHash,
-		Started:  true,
-	}
-
-	e.mut.Unlock()
-
-	if p != nil {
-		log.Debugf("Waiting bt download %s complete", id)
-		p.WaitComplete(t.tt)
-		log.Infof("Bt download %s completed", id)
-	}
-	return nil
-}
-
-func (e *BtEngine) createTorrent(id string) error {
+func (s *Seeder) createTorrent(id string) error {
 	mi := metainfo.MetaInfo{
-		Announce: e.trackers[0],
+		Announce: s.trackers[0],
 	}
 	mi.SetDefaults()
 	info, err := mi.UnmarshalInfo()
 	if err != nil {
 		return fmt.Errorf("UnmarshalInfo failed: %v", err)
 	}
-	info.PieceLength = 4 * 1024 * 1024 // 4MB, similar to dragonfly
+	info.PieceLength = 4 * 1024 * 1024 //4MB, similar to dragonfly
 
-	f := e.GetFilePath(id)
+	f := s.GetFilePath(id)
 	err = info.BuildFromFilePath(f)
 	if err != nil {
 		return fmt.Errorf("Create torrent file for %s failed: %v", f, err)
 	}
 
-	tfn := e.GetTorrentFilePath(id)
+	tfn := s.GetTorrentFilePath(id)
 	tFile, err := os.Create(tfn)
 	if err != nil {
 		return fmt.Errorf("Create torrent file %s failed: %v", tfn, err)
@@ -381,26 +355,26 @@ func (e *BtEngine) createTorrent(id string) error {
 	return nil
 }
 
-func (e *BtEngine) addTorrent(tt *torrent.Torrent) *Torrent {
+func (s *Seeder) addTorrent(tt *torrent.Torrent) *Torrent {
 	ih := tt.InfoHash().HexString()
-	torrent, ok := e.ts[ih]
+	torrent, ok := s.ts[ih]
 	if !ok {
 		torrent = &Torrent{
 			InfoHash: ih,
 			Name:     tt.Name(),
 			tt:       tt,
 		}
-		e.ts[ih] = torrent
+		s.ts[ih] = torrent
 	}
 	return torrent
 }
 
-func (e *BtEngine) getTorrent(infohash string) (*Torrent, error) {
+func (s *Seeder) getTorrent(infohash string) (*Torrent, error) {
 	ih, err := str2ih(infohash)
 	if err != nil {
 		return nil, err
 	}
-	t, ok := e.ts[ih.HexString()]
+	t, ok := s.ts[ih.HexString()]
 	if !ok {
 		return t, fmt.Errorf("Missing torrent %x", ih)
 	}
@@ -408,8 +382,8 @@ func (e *BtEngine) getTorrent(infohash string) (*Torrent, error) {
 }
 
 // Start downloading
-func (e *BtEngine) startTorrent(infohash string) error {
-	t, err := e.getTorrent(infohash)
+func (s *Seeder) startTorrent(infohash string) error {
+	t, err := s.getTorrent(infohash)
 	if err != nil {
 		return err
 	}
@@ -424,8 +398,8 @@ func (e *BtEngine) startTorrent(infohash string) error {
 }
 
 // Drop torrent
-func (e *BtEngine) stopTorrent(infohash string) error {
-	t, err := e.getTorrent(infohash)
+func (s *Seeder) stopTorrent(infohash string) error {
+	t, err := s.getTorrent(infohash)
 	if err != nil {
 		return err
 	}

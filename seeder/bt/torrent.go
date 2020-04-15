@@ -1,4 +1,4 @@
-package btclient
+package bt
 
 import (
 	"time"

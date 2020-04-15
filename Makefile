@@ -50,6 +50,7 @@ download:
 .PHONY: src.build
 src.build:
 	cd proxy && GO111MODULE=on $(GO) build -mod=vendor -v -o ../$(BUILD_FOLDER)/proxy
+	cd seeder && GO111MODULE=on $(GO) build -mod=vendor -v -o ../$(BUILD_FOLDER)/seeder
 
 .PHONY: src.test
 src.test:

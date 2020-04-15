@@ -1,11 +1,10 @@
-package btclient
+package utils
 
 import (
 	"fmt"
+	"github.com/anacrolix/torrent"
 	"io"
 	"time"
-
-	"github.com/duyanghao/eagle/pkg/utils"
 
 	pb "gopkg.in/cheggaaa/pb.v1"
 )
@@ -16,19 +15,19 @@ type ProgressDownload struct {
 	bar    *pb.ProgressBar
 }
 
-func (p *ProgressDownload) waitComplete(t *Torrent) {
+func (p *ProgressDownload) WaitComplete(t *torrent.Torrent) {
 	writeReport := func(f string, a ...interface{}) {
 		fmt.Fprintf(p.output, f, a...)
 	}
 
 	writeReport("%s: Getting torrent info\n", p.id)
-	<-t.tt.GotInfo()
+	<-t.GotInfo()
 	writeReport("%s: Start bittorent downloading\n", p.id)
 
 	p.bar.Start()
 	for {
-		total := t.tt.Info().TotalLength()
-		completed := t.tt.BytesCompleted()
+		total := t.Info().TotalLength()
+		completed := t.BytesCompleted()
 		if completed >= total {
 			break
 		}
@@ -39,7 +38,7 @@ func (p *ProgressDownload) waitComplete(t *Torrent) {
 }
 
 func NewProgressDownload(id string, size int, output io.Writer) *ProgressDownload {
-	bar := utils.NewProgressBar(size, output)
+	bar := NewProgressBar(size, output)
 	return &ProgressDownload{
 		id:     id,
 		output: output,
