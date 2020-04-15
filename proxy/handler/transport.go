@@ -48,10 +48,14 @@ var proxyRoundTripper = &ProxyRoundTripper{
 		TLSClientConfig:       &tls.Config{InsecureSkipVerify: true},
 	},
 	Round2:    NewFileTransport(Dir("/")),
-	P2PClient: btclient.NewBtEngine("/data/", []string{}, nil),
+	P2PClient: btclient.NewBtEngine(global.G_CommandLine.P2PClientRootDir, global.G_P2PClientTrackers, global.G_P2PClientSeeders, nil),
 }
 
 var compiler = regexp.MustCompile("^.+/blobs/sha256.*$")
+
+func Run() error {
+	return proxyRoundTripper.P2PClient.Run()
+}
 
 func needUseP2PClient(req *Request, location string) bool {
 	var useGetter bool
@@ -85,7 +89,7 @@ func (roundTripper *ProxyRoundTripper) RoundTrip(req *Request) (*Response, error
 
 func (roundTripper *ProxyRoundTripper) download(req *Request, urlString string) (*Response, error) {
 	//use P2PClient to download
-	if dstPath, err := roundTripper.P2PClient.DownloadLayer(urlString); err == nil {
+	if dstPath, err := roundTripper.P2PClient.DownloadLayer(req, urlString); err == nil {
 		defer os.Remove(dstPath)
 		if fileReq, err := NewRequest("GET", "file:///"+dstPath, nil); err == nil {
 			response, err := proxyRoundTripper.Round2.RoundTrip(fileReq)

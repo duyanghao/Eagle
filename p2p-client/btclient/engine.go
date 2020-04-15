@@ -6,6 +6,9 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io/ioutil"
+	"net"
+	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -55,13 +58,15 @@ type idInfo struct {
 type BtEngine struct {
 	mut sync.Mutex
 
-	client *torrent.Client
-	config *Config
-	ts     map[string]*Torrent // InfoHash -> torrent
+	client     *torrent.Client
+	httpClient *http.Client
+	config     *Config
+	ts         map[string]*Torrent // InfoHash -> torrent
 
 	idInfos  map[string]*idInfo // image ID -> InfoHash
 	rootDir  string
 	trackers []string
+	seeders  []string
 
 	torrentDir string
 	dataDir    string
@@ -69,7 +74,7 @@ type BtEngine struct {
 	started bool
 }
 
-func NewBtEngine(root string, trackers []string, c *Config) *BtEngine {
+func NewBtEngine(root string, trackers, seeders []string, c *Config) *BtEngine {
 	dataDir := path.Join(root, "data")
 	torrentDir := path.Join(root, "torrents")
 	if c == nil {
@@ -84,11 +89,25 @@ func NewBtEngine(root string, trackers []string, c *Config) *BtEngine {
 	return &BtEngine{
 		rootDir:    root,
 		trackers:   trackers,
+		seeders:    seeders,
 		dataDir:    dataDir,
 		torrentDir: torrentDir,
 		config:     c,
 		ts:         map[string]*Torrent{},
 		idInfos:    map[string]*idInfo{},
+		httpClient: &http.Client{
+			Transport: &http.Transport{
+				Proxy: http.ProxyFromEnvironment,
+				DialContext: (&net.Dialer{
+					Timeout:   30 * time.Second,
+					KeepAlive: 30 * time.Second,
+					DualStack: true,
+				}).DialContext,
+				MaxIdleConns:        100,
+				MaxIdleConnsPerHost: 100,
+				IdleConnTimeout:     90 * time.Second,
+			},
+		},
 	}
 }
 
@@ -155,15 +174,39 @@ func (e *BtEngine) Run() error {
 	return nil
 }
 
-func (e *BtEngine) GetTorrentFromSeeder(blobUrl string) ([]byte, error) {
-	return []byte{}, nil
+func (e *BtEngine) GetTorrentFromSeeder(r *http.Request, blobUrl string) ([]byte, error) {
+	// construct encoded endpoint
+	Url, err := url.Parse(fmt.Sprintf("http://%s", e.seeders[0]))
+	if err != nil {
+		return nil, err
+	}
+	Url.Path += r.URL.Path
+	endpoint := Url.String()
+	req, err := http.NewRequest("GET", endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+	// use httpClient to send request
+	rsp, err := e.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	// close the connection to reuse it
+	defer rsp.Body.Close()
+	// check status code
+	if rsp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("GetTorrentFromSeeder rsp error: %v", rsp)
+	}
+	// parse rsp body
+	t, err := ioutil.ReadAll(rsp.Body)
+	return t, err
 }
 
-func (e *BtEngine) DownloadLayer(blobUrl string) (string, error) {
+func (e *BtEngine) DownloadLayer(req *http.Request, blobUrl string) (string, error) {
 	digest := blobUrl[strings.LastIndex(blobUrl, "/")+1:]
 	id := distdigests.Digest(digest).Encoded()
 	log.Debugf("Start leeching layer %s", id)
-	t, err := e.GetTorrentFromSeeder(blobUrl)
+	t, err := e.GetTorrentFromSeeder(req, blobUrl)
 	if err != nil {
 		log.Errorf("Get torrent data from seeder for %s failed: %v", id, err)
 		return "", err

@@ -160,6 +160,9 @@ func initParam() {
 	flag.StringVar(&G_CommandLine.DownRule, "rule", "", "download the url by P2P if url matches the specified pattern,format:reg1,reg2,reg3")
 	flag.StringVar(&G_CommandLine.CertFile, "certpem", "", "cert.pem file path")
 	flag.StringVar(&G_CommandLine.KeyFile, "keypem", "", "key.pem file path")
+	flag.StringVar(&G_CommandLine.P2PClientRootDir, "rootdir", "/data/", "root directory of p2p client")
+	flag.StringVar(&G_CommandLine.P2PClientTrackers, "trackers", "", "tracker list of p2p client")
+	flag.StringVar(&G_CommandLine.P2PClientSeeders, "seeders", "", "seeder list of p2p client")
 
 	flag.Parse()
 
@@ -227,4 +230,7 @@ func initParam() {
 		}
 	}
 
+	G_P2PClientTrackers = strings.Split(G_CommandLine.P2PClientTrackers, ",")
+
+	G_P2PClientSeeders = strings.Split(G_CommandLine.P2PClientSeeders, ",")
 }

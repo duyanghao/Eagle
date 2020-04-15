@@ -35,8 +35,11 @@ type CommandParam struct {
 	Registry string //https://xxx.xx.x:port or http://xxx.xx.x:port
 	DownRule string
 
-	CertFile string
-	KeyFile  string
+	CertFile          string
+	KeyFile           string
+	P2PClientRootDir  string
+	P2PClientSeeders  string
+	P2PClientTrackers string
 }
 
 var (
@@ -55,6 +58,10 @@ var (
 	G_RegDomain string
 
 	G_DFPattern = make(map[string]*regexp.Regexp)
+
+	G_P2PClientSeeders []string
+
+	G_P2PClientTrackers []string
 
 	rwMutex sync.RWMutex
 )
