@@ -217,13 +217,18 @@ func (e *BtEngine) GetTorrentFromSeeder(r *http.Request, blobUrl string) ([]byte
 func (e *BtEngine) DownloadLayer(req *http.Request, blobUrl string) (string, error) {
 	digest := blobUrl[strings.LastIndex(blobUrl, "/")+1:]
 	id := distdigests.Digest(digest).Encoded()
+	// Check whether or not the layer exists
+	layerPath := e.GetFilePath(id)
+	if _, err := os.Stat(layerPath); err == nil {
+		log.Debugf("layer %s exists already, let's return directly ...", id)
+		return layerPath, nil
+	}
 	log.Debugf("Start leeching layer %s", id)
 	t, err := e.GetTorrentFromSeeder(req, blobUrl)
 	if err != nil {
 		log.Errorf("Get torrent data from seeder for %s failed: %v", id, err)
 		return "", err
 	}
-
 	// Load torrent data
 	reader := bytes.NewBuffer(t)
 	metaInfo, err := metainfo.Load(reader)
@@ -242,7 +247,7 @@ func (e *BtEngine) DownloadLayer(req *http.Request, blobUrl string) (string, err
 	} else {
 		log.Infof("Download layer %s success", id)
 	}
-	return e.GetFilePath(id), nil
+	return layerPath, nil
 }
 
 func (e *BtEngine) Started() bool {

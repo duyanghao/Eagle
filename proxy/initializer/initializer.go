@@ -19,7 +19,6 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"os/exec"
 	"os/user"
 	"path/filepath"
 	"reflect"
@@ -49,7 +48,7 @@ func init() {
 	InitMux()
 
 	//clean local data dir
-	go cleanLocalRepo()
+	//go cleanLocalRepo()
 
 	log.Info("init finish")
 }
@@ -137,17 +136,6 @@ func initLogger() {
 }
 
 func initParam() {
-	flag.StringVar(&G_CommandLine.DFRepo, "localrepo", G_HomeDir+".small-dragonfly/dfdaemon/data/", "temp output dir of daemon")
-
-	var defaultPath string
-	if path, err := exec.LookPath(os.Args[0]); err == nil {
-		if absPath, err := filepath.Abs(path); err == nil {
-			G_DfHome = filepath.Dir(absPath)
-			defaultPath = G_DfHome + "/dfget"
-		}
-
-	}
-	flag.StringVar(&G_CommandLine.DfPath, "dfpath", defaultPath, "dfget path")
 	flag.StringVar(&G_CommandLine.RateLimit, "ratelimit", "", "net speed limit,format:xxxM/K")
 	flag.StringVar(&G_CommandLine.CallSystem, "callsystem", "com_ops_dragonfly", "caller name")
 	flag.StringVar(&G_CommandLine.Urlfilter, "urlfilter", "Signature&Expires&OSSAccessKeyId", "filter specified url fields")
@@ -207,14 +195,6 @@ func initParam() {
 	for _, rule := range downRule {
 		UpdateDFPattern(rule)
 	}
-	if _, err := os.Stat(G_CommandLine.DfPath); err != nil && os.IsNotExist(err) {
-		log.Errorf("dfpath:%s not found", G_CommandLine.DfPath)
-		os.Exit(constant.CODE_EXIT_DFGET_NOT_FOUND)
-	}
-	cmd := exec.Command(G_CommandLine.DfPath, "-v")
-	version, _ := cmd.CombinedOutput()
-
-	log.Infof("proxy version:%s", string(version))
 
 	if G_CommandLine.CertFile != "" && G_CommandLine.KeyFile != "" {
 		G_UseHttps = true

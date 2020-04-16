@@ -17,15 +17,12 @@ import (
 	"crypto/tls"
 	"net"
 	. "net/http"
-	"os"
-
 	"regexp"
 	"time"
 
 	"github.com/sirupsen/logrus"
 
 	"github.com/duyanghao/eagle/p2p-client/btclient"
-	"github.com/duyanghao/eagle/proxy/exception"
 	"github.com/duyanghao/eagle/proxy/global"
 )
 
@@ -91,7 +88,7 @@ func (roundTripper *ProxyRoundTripper) RoundTrip(req *Request) (*Response, error
 func (roundTripper *ProxyRoundTripper) download(req *Request, urlString string) (*Response, error) {
 	//use P2PClient to download
 	if dstPath, err := roundTripper.P2PClient.DownloadLayer(req, urlString); err == nil {
-		defer os.Remove(dstPath)
+		// defer os.Remove(dstPath)
 		if fileReq, err := NewRequest("GET", "file:///"+dstPath, nil); err == nil {
 			response, err := proxyRoundTripper.Round2.RoundTrip(fileReq)
 			if err == nil {
