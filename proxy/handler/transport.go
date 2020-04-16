@@ -47,44 +47,45 @@ var proxyRoundTripper = &ProxyRoundTripper{
 		ExpectContinueTimeout: 1 * time.Second,
 		TLSClientConfig:       &tls.Config{InsecureSkipVerify: true},
 	},
-	Round2:    NewFileTransport(Dir("/")),
-	P2PClient: btclient.NewBtEngine(global.G_CommandLine.P2PClientRootDir, global.G_P2PClientTrackers, global.G_P2PClientSeeders, nil),
+	Round2: NewFileTransport(Dir("/")),
 }
 
 var compiler = regexp.MustCompile("^.+/blobs/sha256.*$")
 
 func Run() error {
+	proxyRoundTripper.P2PClient = btclient.NewBtEngine(global.G_CommandLine.P2PClientRootDir, global.G_P2PClientTrackers, global.G_P2PClientSeeders, nil)
 	return proxyRoundTripper.P2PClient.Run()
 }
 
 func needUseP2PClient(req *Request, location string) bool {
-	var useGetter bool
 	if req.Method == MethodGet {
-		if compiler.MatchString(req.URL.Path) {
-			return true
+		if !compiler.MatchString(req.URL.Path) {
+			return false
 		}
 		if location != "" {
 			return global.MatchDfPattern(location)
 		}
+		return true
 	}
-	return useGetter
+	return false
 }
 
 //only process first redirect at present
 //fix resource release
 func (roundTripper *ProxyRoundTripper) RoundTrip(req *Request) (*Response, error) {
 	urlString := req.URL.String()
-
 	if needUseP2PClient(req, urlString) {
-		if res, err := proxyRoundTripper.download(req, urlString); err == nil || !exception.IsNotAuth(err) {
+		logrus.Debugf("try to get blob: %s through p2p based image distribution system ...", urlString)
+		if res, err := proxyRoundTripper.download(req, urlString); err == nil {
 			return res, err
 		}
+		logrus.Errorf("failed to get blob: %s from p2p based image distribution system, let's switch to original request ...", urlString)
 	}
+
 	req.Host = req.URL.Host
 	req.Header.Set("Host", req.Host)
 	res, err := roundTripper.Round.RoundTrip(req)
 	return res, err
-
 }
 
 func (roundTripper *ProxyRoundTripper) download(req *Request, urlString string) (*Response, error) {

@@ -21,6 +21,21 @@ The principle of eagle is quite simple and can be illustrated as follows:
 
 ![](docs/images/eagle_arch.png)
 
+- Proxy
+  - Deployed on every host
+  - Implements Docker registry interface
+- P2PClient
+  - Announces available content to tracker
+  - Connects to peers returned by tracker to download content
+- Seeder
+  - Dedicated seeders
+  - Stores blobs as files on disk backed by pluggable storage (e.g. S3, GCS, ECR)
+- Tracker
+  - Tracks which peers have what content (both in-progress and completed)
+  - Provides ordered lists of peers to connect to for any given blob
+- Origin
+  - Docker Distribution or Mirror
+
 # Comparison With Other Projects
 
 ## [Dragonfly from Alibaba](https://github.com/dragonflyoss/Dragonfly)
@@ -43,3 +58,4 @@ Eagle uses almost the same components with [kraken](https://github.com/uber/krak
 * [kraken](https://github.com/uber/kraken)
 * [FID: A Faster Image Distribution System for Docker Platform](https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=8064123)
 * [The BitTorrent Protocol Specification](http://bittorrent.org/beps/bep_0003.html)
+* [oci-torrent](https://github.com/hustcat/oci-torrent)

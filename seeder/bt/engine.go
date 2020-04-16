@@ -11,12 +11,12 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/anacrolix/torrent"
+	"github.com/anacrolix/torrent/bencode"
 	"github.com/anacrolix/torrent/metainfo"
 	distdigests "github.com/opencontainers/go-digest"
 	log "github.com/sirupsen/logrus"
@@ -124,14 +124,24 @@ func (s *Seeder) Run() error {
 	if c.IncomingPort <= 0 {
 		return fmt.Errorf("Invalid incoming port (%d)", c.IncomingPort)
 	}
-	tc := torrent.ClientConfig{
+
+	tc := torrent.NewDefaultClientConfig()
+	tc.DataDir = s.dataDir
+	tc.NoUpload = !c.EnableUpload
+	tc.Seed = c.EnableSeeding
+	tc.DisableUTP = true
+	tc.ListenPort = c.IncomingPort
+
+	/*tc := torrent.ClientConfig{
 		DataDir:    s.dataDir,
 		NoUpload:   !c.EnableUpload,
 		Seed:       c.EnableSeeding,
 		DisableUTP: true,
 	}
 	tc.SetListenAddr("0.0.0.0:" + strconv.Itoa(c.IncomingPort))
-	client, err := torrent.NewClient(&tc)
+	*/
+
+	client, err := torrent.NewClient(tc)
 	if err != nil {
 		return err
 	}
@@ -172,7 +182,8 @@ func (s *Seeder) Run() error {
 
 func (s *Seeder) getDataFromOrigin(r *http.Request) ([]byte, error) {
 	// construct encoded endpoint
-	Url, err := url.Parse(fmt.Sprintf("http://%s", r.URL.Host))
+	origin := r.Header.Get("Location")
+	Url, err := url.Parse(fmt.Sprintf("http://%s", origin))
 	if err != nil {
 		return nil, err
 	}
@@ -213,6 +224,7 @@ func (s *Seeder) getMetaData(r *http.Request, id string) error {
 	log.Debugf(fmt.Sprintf("torrent of layer: %s not found, let's fetch data from origin ...", id))
 	data, err := s.getDataFromOrigin(r)
 	if err != nil {
+		log.Errorf("get torrent of layer: %s failed, error: %v", id, err)
 		return err
 	}
 	// step3 - generate layerFile
@@ -276,8 +288,8 @@ func (s *Seeder) StartSeed(id string) error {
 		return ErrSeederNotStart
 	}
 
-	s.mut.Lock()
-	defer s.mut.Unlock()
+	//s.mut.Lock()
+	//defer s.mut.Unlock()
 
 	info, ok := s.idInfos[id]
 	if ok && info.Started {
@@ -290,6 +302,7 @@ func (s *Seeder) StartSeed(id string) error {
 		// Torrent file not exist, create it
 		log.Debugf("Create torrent file for %s", id)
 		if err = s.createTorrent(id); err != nil {
+			log.Errorf("Create torrent file for %s, error: %v", id, err)
 			return err
 		}
 	}
@@ -324,18 +337,19 @@ func (s *Seeder) StartSeed(id string) error {
 }
 
 func (s *Seeder) createTorrent(id string) error {
+	info := metainfo.Info{
+		PieceLength: 4 * 1024 * 1024,
+	}
+	f := s.GetFilePath(id)
+	err := info.BuildFromFilePath(f)
+	if err != nil {
+		return fmt.Errorf("Create torrent file for %s failed: %v", f, err)
+	}
 	mi := metainfo.MetaInfo{
 		Announce: s.trackers[0],
 	}
 	mi.SetDefaults()
-	info, err := mi.UnmarshalInfo()
-	if err != nil {
-		return fmt.Errorf("UnmarshalInfo failed: %v", err)
-	}
-	info.PieceLength = 4 * 1024 * 1024 //4MB, similar to dragonfly
-
-	f := s.GetFilePath(id)
-	err = info.BuildFromFilePath(f)
+	mi.InfoBytes, err = bencode.Marshal(&info)
 	if err != nil {
 		return fmt.Errorf("Create torrent file for %s failed: %v", f, err)
 	}

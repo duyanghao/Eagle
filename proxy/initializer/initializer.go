@@ -38,7 +38,7 @@ import (
 func init() {
 
 	//init part log config
-	initLogger()
+	//initLogger()
 
 	log.Info("init...")
 

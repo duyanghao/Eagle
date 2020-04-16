@@ -20,7 +20,7 @@ import (
 
 func InitMux(seeder *bt.Seeder) {
 	router := map[string]func(http.ResponseWriter, *http.Request){
-		"/metadata": seeder.GetMetaData,
+		"/v2/": seeder.GetMetaData,
 	}
 
 	for key, value := range router {

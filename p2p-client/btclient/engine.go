@@ -12,12 +12,12 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/anacrolix/torrent"
+	"github.com/anacrolix/torrent/bencode"
 	"github.com/anacrolix/torrent/metainfo"
 	distdigests "github.com/opencontainers/go-digest"
 	log "github.com/sirupsen/logrus"
@@ -127,14 +127,25 @@ func (e *BtEngine) Run() error {
 	if c.IncomingPort <= 0 {
 		return fmt.Errorf("Invalid incoming port (%d)", c.IncomingPort)
 	}
-	tc := torrent.ClientConfig{
+	tc := torrent.NewDefaultClientConfig()
+	tc.DataDir = e.dataDir
+	tc.NoUpload = !c.EnableUpload
+	tc.Seed = c.EnableSeeding
+	tc.DisableUTP = true
+	tc.ListenPort = c.IncomingPort
+	/*tc := torrent.ClientConfig{
 		DataDir:    e.dataDir,
 		NoUpload:   !c.EnableUpload,
 		Seed:       c.EnableSeeding,
 		DisableUTP: true,
-	}
-	tc.SetListenAddr("0.0.0.0:" + strconv.Itoa(c.IncomingPort))
-	client, err := torrent.NewClient(&tc)
+		ListenHost: func(string) string { return "0.0.0.0" },
+		ListenPort: c.IncomingPort,
+		DisableIPv6: true,
+		DhtStartingNodes: func(network string) dht.StartingNodesGetter {
+			return func() ([]dht.Addr, error) { return dht.GlobalBootstrapAddrs(network) }
+		},
+	}*/
+	client, err := torrent.NewClient(tc)
 	if err != nil {
 		return err
 	}
@@ -181,10 +192,12 @@ func (e *BtEngine) GetTorrentFromSeeder(r *http.Request, blobUrl string) ([]byte
 	}
 	Url.Path += r.URL.Path
 	endpoint := Url.String()
+	log.Debugf("GetTorrentFromSeeder endpoint: %s", endpoint)
 	req, err := http.NewRequest("GET", endpoint, nil)
 	if err != nil {
 		return nil, err
 	}
+	req.Header.Add("Location", r.URL.Host)
 	// use httpClient to send request
 	rsp, err := e.httpClient.Do(req)
 	if err != nil {
@@ -350,18 +363,19 @@ func (e *BtEngine) StartLeecher(id string, metaInfo *metainfo.MetaInfo, p *utils
 }
 
 func (e *BtEngine) createTorrent(id string) error {
+	info := metainfo.Info{
+		PieceLength: 4 * 1024 * 1024,
+	}
+	f := e.GetFilePath(id)
+	err := info.BuildFromFilePath(f)
+	if err != nil {
+		return fmt.Errorf("Create torrent file for %s failed: %v", f, err)
+	}
 	mi := metainfo.MetaInfo{
 		Announce: e.trackers[0],
 	}
 	mi.SetDefaults()
-	info, err := mi.UnmarshalInfo()
-	if err != nil {
-		return fmt.Errorf("UnmarshalInfo failed: %v", err)
-	}
-	info.PieceLength = 4 * 1024 * 1024 // 4MB, similar to dragonfly
-
-	f := e.GetFilePath(id)
-	err = info.BuildFromFilePath(f)
+	mi.InfoBytes, err = bencode.Marshal(&info)
 	if err != nil {
 		return fmt.Errorf("Create torrent file for %s failed: %v", f, err)
 	}
