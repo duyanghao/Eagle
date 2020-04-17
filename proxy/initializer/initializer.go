@@ -16,10 +16,8 @@ package util
 import (
 	"flag"
 	"fmt"
-	"io"
-	"io/ioutil"
 	"os"
-	"os/user"
+	"path"
 	"path/filepath"
 	"reflect"
 	"regexp"
@@ -35,10 +33,6 @@ import (
 )
 
 func init() {
-
-	//init part log config
-	//initLogger()
-
 	log.Info("init...")
 
 	// init command line param
@@ -48,7 +42,7 @@ func init() {
 	InitMux()
 
 	//clean local data dir
-	//go cleanLocalRepo()
+	go cleanLocalRepo()
 
 	log.Info("init finish")
 }
@@ -62,10 +56,10 @@ func cleanLocalRepo() {
 	}()
 	for {
 		select {
-		case <-time.After(time.Minute * 2):
+		case <-time.After(time.Minute * 10):
 			func() {
 				log.Info("scan repo and clean expired files")
-				filepath.Walk(G_CommandLine.DFRepo, func(path string, info os.FileInfo, err error) error {
+				filepath.Walk(path.Join(G_CommandLine.P2PClientRootDir, "data"), func(path string, info os.FileInfo, err error) error {
 					if err != nil {
 						log.Warnf("walk file:%s error:%v", path, err)
 					} else {
@@ -84,55 +78,6 @@ func cleanLocalRepo() {
 			}()
 		}
 	}
-}
-
-func rotateLog(logFile *os.File, logFilePath string) {
-	logSizeLimit := int64(20 * 1024 * 1024)
-	for {
-		select {
-		case <-time.After(time.Second * 60):
-			if stat, err := os.Stat(logFilePath); err == nil {
-				if stat.Size() > logSizeLimit {
-					log.SetOutput(ioutil.Discard)
-					logFile.Sync()
-					if transFile, err := os.Open(logFilePath); err == nil {
-						transFile.Seek(-10*1024*1024, 2)
-						logFile.Seek(0, 0)
-						count, _ := io.Copy(logFile, transFile)
-						logFile.Truncate(count)
-						log.SetOutput(logFile)
-						transFile.Close()
-					}
-				}
-			}
-
-		}
-	}
-
-}
-
-func initLogger() {
-	if current, err := user.Current(); err == nil {
-		G_HomeDir = strings.TrimSpace(current.HomeDir)
-	}
-	if G_HomeDir != "" {
-		if !strings.HasSuffix(G_HomeDir, "/") {
-			G_HomeDir += "/"
-		}
-	} else {
-		os.Exit(constant.CODE_EXIT_USER_HOME_NOT_EXIST)
-	}
-
-	logFilePath := G_HomeDir + ".small-dragonfly/logs/dfdaemon.log"
-	log.SetFormatter(&log.TextFormatter{TimestampFormat: "2006-01-02 15:04:00", DisableColors: true})
-	if os.MkdirAll(filepath.Dir(logFilePath), 0755) == nil {
-		if logFile, err := os.OpenFile(logFilePath, os.O_CREATE|os.O_RDWR, 0644); err == nil {
-			logFile.Seek(0, 2)
-			log.SetOutput(logFile)
-			go rotateLog(logFile, logFilePath)
-		}
-	}
-
 }
 
 func initParam() {
@@ -167,18 +112,6 @@ func initParam() {
 		log.SetLevel(log.DebugLevel)
 	} else {
 		log.SetLevel(log.InfoLevel)
-	}
-
-	if !filepath.IsAbs(G_CommandLine.DFRepo) {
-		log.Errorf("local repo:%s is not abs", G_CommandLine.DFRepo)
-		os.Exit(constant.CODE_EXIT_PATH_NOT_ABS)
-	}
-	if !strings.HasSuffix(G_CommandLine.DFRepo, "/") {
-		G_CommandLine.DFRepo += "/"
-	}
-	if err := os.MkdirAll(G_CommandLine.DFRepo, 0755); err != nil {
-		log.Errorf("create local repo:%s err:%v", G_CommandLine.DFRepo, err)
-		os.Exit(constant.CODE_EXIT_REPO_CREATE_FAIL)
 	}
 
 	if len(G_CommandLine.RateLimit) == 0 {
