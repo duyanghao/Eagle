@@ -24,7 +24,6 @@ func InitMux() {
 		"/":       handler.Process,
 		"/args":   handler.GetArgs,
 		"/debug/": handler.DebugInfo,
-		"/env":    handler.GetEnv,
 	}
 
 	for key, value := range router {

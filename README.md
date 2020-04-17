@@ -52,6 +52,16 @@ Kraken uses several components, such as `Agent`, `Origin`, `Tracker`, `Proxy` an
  
 Eagle uses almost the same components with [kraken](https://github.com/uber/kraken), but it is more compact as it uses [BitTorrent protocol](http://bittorrent.org/beps/bep_0003.html) underlayer and drops some unessential components.   
 
+## TODO
+
+* Host level speed limit
+* Concurrent p2p optimization
+* Pluggable storage options
+* Peer optimal arithmetic
+* High-availability
+* Push notification mechanism
+* Strong consistency
+
 ## Refs
 
 * [Dragonfly](https://github.com/dragonflyoss/Dragonfly)

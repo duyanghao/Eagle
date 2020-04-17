@@ -21,9 +21,6 @@ import (
 )
 
 type CommandParam struct {
-	DfPath     string
-	DFRepo     string
-	RateLimit  string
 	CallSystem string
 	Urlfilter  string
 	Notbs      bool
@@ -35,20 +32,16 @@ type CommandParam struct {
 	Registry string //https://xxx.xx.x:port or http://xxx.xx.x:port
 	DownRule string
 
-	CertFile          string
-	KeyFile           string
-	P2PClientRootDir  string
-	P2PClientSeeders  string
-	P2PClientTrackers string
+	CertFile                   string
+	KeyFile                    string
+	P2PClientRootDir           string
+	P2PClientSeeders           string
+	P2PClientTrackers          string
+	P2PClientDownloadRateLimit string
+	P2PClientUploadRateLimit   string
 }
 
 var (
-	//user home
-	G_HomeDir string
-
-	//df-daemon home
-	G_DfHome string
-
 	G_UseHttps bool
 
 	G_CommandLine CommandParam

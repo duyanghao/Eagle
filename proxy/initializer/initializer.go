@@ -81,7 +81,7 @@ func cleanLocalRepo() {
 }
 
 func initParam() {
-	flag.StringVar(&G_CommandLine.RateLimit, "ratelimit", "", "net speed limit,format:xxxM/K")
+	//flag.StringVar(&G_CommandLine.RateLimit, "ratelimit", "", "net speed limit,format:xxxM/K")
 	flag.StringVar(&G_CommandLine.CallSystem, "callsystem", "com_ops_dragonfly", "caller name")
 	flag.StringVar(&G_CommandLine.Urlfilter, "urlfilter", "Signature&Expires&OSSAccessKeyId", "filter specified url fields")
 	flag.BoolVar(&G_CommandLine.Notbs, "notbs", true, "not try back source to download if throw exception")
@@ -96,6 +96,8 @@ func initParam() {
 	flag.StringVar(&G_CommandLine.P2PClientRootDir, "rootdir", "/data/", "root directory of p2p client")
 	flag.StringVar(&G_CommandLine.P2PClientTrackers, "trackers", "", "tracker list of p2p client")
 	flag.StringVar(&G_CommandLine.P2PClientSeeders, "seeders", "", "seeder list of p2p client")
+	flag.StringVar(&G_CommandLine.P2PClientDownloadRateLimit, "drl", "50M", "net speed limit for bt download,format:xxxM/K")
+	flag.StringVar(&G_CommandLine.P2PClientUploadRateLimit, "url", "50M", "net speed limit for bt upload,format:xxxM/K")
 
 	flag.Parse()
 
@@ -114,9 +116,15 @@ func initParam() {
 		log.SetLevel(log.InfoLevel)
 	}
 
-	if len(G_CommandLine.RateLimit) == 0 {
-		G_CommandLine.RateLimit = util.NetLimit()
-	} else if isMatch, _ := regexp.MatchString("^[[:digit:]]+[MK]$", G_CommandLine.RateLimit); !isMatch {
+	if len(G_CommandLine.P2PClientDownloadRateLimit) == 0 {
+		G_CommandLine.P2PClientDownloadRateLimit = util.NetLimit()
+	} else if isMatch, _ := regexp.MatchString("^[[:digit:]]+[MK]$", G_CommandLine.P2PClientDownloadRateLimit); !isMatch {
+		os.Exit(constant.CODE_EXIT_RATE_LIMIT_INVALID)
+	}
+
+	if len(G_CommandLine.P2PClientUploadRateLimit) == 0 {
+		G_CommandLine.P2PClientUploadRateLimit = util.NetLimit()
+	} else if isMatch, _ := regexp.MatchString("^[[:digit:]]+[MK]$", G_CommandLine.P2PClientUploadRateLimit); !isMatch {
 		os.Exit(constant.CODE_EXIT_RATE_LIMIT_INVALID)
 	}
 

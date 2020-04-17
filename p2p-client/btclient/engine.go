@@ -19,16 +19,15 @@ import (
 	"github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/bencode"
 	"github.com/anacrolix/torrent/metainfo"
+	"github.com/duyanghao/eagle/pkg/constants"
 	distdigests "github.com/opencontainers/go-digest"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/time/rate"
 )
 
 var (
 	ErrBtEngineNotStart = fmt.Errorf("BT engine not started")
 )
-
-const DefaultUploadRateLimit = 50 * 1024 * 1024 // 50Mb/s
-const DefaultDownloadRateLimit = 50 * 1024 * 1024
 
 type Config struct {
 	EnableUpload      bool
@@ -81,8 +80,8 @@ func NewBtEngine(root string, trackers, seeders []string, c *Config) *BtEngine {
 			EnableUpload:      true,
 			EnableSeeding:     true,
 			IncomingPort:      50007,
-			UploadRateLimit:   DefaultUploadRateLimit,
-			DownloadRateLimit: DefaultDownloadRateLimit,
+			UploadRateLimit:   constants.DefaultUploadRateLimit,
+			DownloadRateLimit: constants.DefaultDownloadRateLimit,
 		}
 	}
 	return &BtEngine{
@@ -133,6 +132,8 @@ func (e *BtEngine) Run() error {
 	tc.Seed = c.EnableSeeding
 	tc.DisableUTP = true
 	tc.ListenPort = c.IncomingPort
+	tc.UploadRateLimiter = rate.NewLimiter(rate.Limit(c.UploadRateLimit), constants.DefaultRateLimitBurst)
+	tc.DownloadRateLimiter = rate.NewLimiter(rate.Limit(c.DownloadRateLimit), constants.DefaultRateLimitBurst)
 	/*tc := torrent.ClientConfig{
 		DataDir:    e.dataDir,
 		NoUpload:   !c.EnableUpload,
