@@ -12,6 +12,7 @@ import (
 
 var (
 	argRootDataDir string
+	argOrigin      string
 	argTrackers    string
 	argPort        int
 	argVerbose     bool
@@ -31,6 +32,7 @@ func main() {
 func init() {
 	flag.IntVar(&argPort, "port", 65005, "The port seeder listens to")
 	flag.StringVar(&argRootDataDir, "rootdir", "/data/", "The root directory of seeder")
+	flag.StringVar(&argOrigin, "origin", "", "The data origin of seeder")
 	flag.StringVar(&argTrackers, "trackers", "", "The tracker list of seeder")
 	flag.BoolVar(&argVerbose, "verbose", false, "verbose")
 	flag.Parse()
@@ -40,7 +42,7 @@ func init() {
 		log.SetLevel(log.InfoLevel)
 	}
 	trackers := strings.Split(argTrackers, ",")
-	seeder = bt.NewSeeder(argRootDataDir, trackers, nil)
+	seeder = bt.NewSeeder(argRootDataDir, argOrigin, trackers, nil)
 	err := seeder.Run()
 	if err != nil {
 		log.Fatal(err)

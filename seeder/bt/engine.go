@@ -64,6 +64,7 @@ type Seeder struct {
 	idInfos  map[string]*idInfo // image ID -> InfoHash
 	rootDir  string
 	trackers []string
+	origin   string
 
 	torrentDir string
 	dataDir    string
@@ -71,7 +72,7 @@ type Seeder struct {
 	started bool
 }
 
-func NewSeeder(root string, trackers []string, c *Config) *Seeder {
+func NewSeeder(root, origin string, trackers []string, c *Config) *Seeder {
 	dataDir := path.Join(root, "data")
 	torrentDir := path.Join(root, "torrents")
 	if c == nil {
@@ -86,6 +87,7 @@ func NewSeeder(root string, trackers []string, c *Config) *Seeder {
 	return &Seeder{
 		rootDir:    root,
 		trackers:   trackers,
+		origin:     origin,
 		dataDir:    dataDir,
 		torrentDir: torrentDir,
 		config:     c,
@@ -182,8 +184,8 @@ func (s *Seeder) Run() error {
 
 func (s *Seeder) getDataFromOrigin(r *http.Request) ([]byte, error) {
 	// construct encoded endpoint
-	origin := r.Header.Get("Location")
-	Url, err := url.Parse(fmt.Sprintf("http://%s", origin))
+	//origin := r.Header.Get("Location")
+	Url, err := url.Parse(fmt.Sprintf("http://%s", s.origin))
 	if err != nil {
 		return nil, err
 	}

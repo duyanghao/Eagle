@@ -30,7 +30,7 @@ The principle of eagle is quite simple and can be illustrated as follows:
 - Seeder
   - Dedicated seeders
   - Stores blobs as files on disk backed by pluggable storage (e.g. S3, GCS, ECR)
-- Tracker
+- [Tracker](https://github.com/chihaya/chihaya)
   - Tracks which peers have what content (both in-progress and completed)
   - Provides ordered lists of peers to connect to for any given blob
 - Origin
@@ -59,3 +59,4 @@ Eagle uses almost the same components with [kraken](https://github.com/uber/krak
 * [FID: A Faster Image Distribution System for Docker Platform](https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=8064123)
 * [The BitTorrent Protocol Specification](http://bittorrent.org/beps/bep_0003.html)
 * [oci-torrent](https://github.com/hustcat/oci-torrent)
+* [tracker](https://github.com/chihaya/chihaya)
