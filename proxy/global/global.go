@@ -21,9 +21,7 @@ import (
 )
 
 type CommandParam struct {
-	CallSystem string
-	Urlfilter  string
-	Notbs      bool
+	Urlfilter string
 
 	Version  bool
 	Verbose  bool
@@ -39,6 +37,7 @@ type CommandParam struct {
 	P2PClientTrackers          string
 	P2PClientDownloadRateLimit string
 	P2PClientUploadRateLimit   string
+	P2PClientCacheLimitSize    string
 }
 
 var (

@@ -16,20 +16,14 @@ package util
 import (
 	"flag"
 	"fmt"
+	log "github.com/sirupsen/logrus"
 	"os"
-	"path"
-	"path/filepath"
-	"reflect"
 	"regexp"
 	"strings"
-	"time"
-
-	log "github.com/sirupsen/logrus"
 
 	"github.com/duyanghao/eagle/proxy/constant"
 	. "github.com/duyanghao/eagle/proxy/global"
 	. "github.com/duyanghao/eagle/proxy/muxconf"
-	"github.com/duyanghao/eagle/proxy/util"
 )
 
 func init() {
@@ -41,50 +35,11 @@ func init() {
 	//http handler mapper
 	InitMux()
 
-	//clean local data dir
-	go cleanLocalRepo()
-
 	log.Info("init finish")
 }
 
-func cleanLocalRepo() {
-	defer func() {
-		if err := recover(); err != nil {
-			log.Errorf("recover cleanLocalRepo from err:%v", err)
-			go cleanLocalRepo()
-		}
-	}()
-	for {
-		select {
-		case <-time.After(time.Minute * 10):
-			func() {
-				log.Info("scan repo and clean expired files")
-				filepath.Walk(path.Join(G_CommandLine.P2PClientRootDir, "data"), func(path string, info os.FileInfo, err error) error {
-					if err != nil {
-						log.Warnf("walk file:%s error:%v", path, err)
-					} else {
-						if info.Mode().IsRegular() {
-							if time.Now().Unix()-reflect.ValueOf(info.Sys()).Elem().FieldByName("Atim").Field(0).Int() >= 3600 {
-								if err := os.Remove(path); err == nil {
-									log.Infof("remove file:%s success", path)
-								} else {
-									log.Warnf("remove file:%s error:%v", path, err)
-								}
-							}
-						}
-					}
-					return nil
-				})
-			}()
-		}
-	}
-}
-
 func initParam() {
-	//flag.StringVar(&G_CommandLine.RateLimit, "ratelimit", "", "net speed limit,format:xxxM/K")
-	flag.StringVar(&G_CommandLine.CallSystem, "callsystem", "com_ops_dragonfly", "caller name")
 	flag.StringVar(&G_CommandLine.Urlfilter, "urlfilter", "Signature&Expires&OSSAccessKeyId", "filter specified url fields")
-	flag.BoolVar(&G_CommandLine.Notbs, "notbs", true, "not try back source to download if throw exception")
 	flag.BoolVar(&G_CommandLine.Version, "v", false, "version")
 	flag.BoolVar(&G_CommandLine.Verbose, "verbose", false, "verbose")
 	flag.BoolVar(&G_CommandLine.Help, "h", false, "help")
@@ -98,6 +53,7 @@ func initParam() {
 	flag.StringVar(&G_CommandLine.P2PClientSeeders, "seeders", "", "seeder list of p2p client")
 	flag.StringVar(&G_CommandLine.P2PClientDownloadRateLimit, "drl", "50M", "net speed limit for bt download,format:xxxM/K")
 	flag.StringVar(&G_CommandLine.P2PClientUploadRateLimit, "url", "50M", "net speed limit for bt upload,format:xxxM/K")
+	flag.StringVar(&G_CommandLine.P2PClientCacheLimitSize, "limitsize", "100G", "cache size limit for p2p client,format:xxxT/G")
 
 	flag.Parse()
 
@@ -116,15 +72,11 @@ func initParam() {
 		log.SetLevel(log.InfoLevel)
 	}
 
-	if len(G_CommandLine.P2PClientDownloadRateLimit) == 0 {
-		G_CommandLine.P2PClientDownloadRateLimit = util.NetLimit()
-	} else if isMatch, _ := regexp.MatchString("^[[:digit:]]+[MK]$", G_CommandLine.P2PClientDownloadRateLimit); !isMatch {
+	if isMatch, _ := regexp.MatchString("^[[:digit:]]+[MK]$", G_CommandLine.P2PClientDownloadRateLimit); !isMatch {
 		os.Exit(constant.CODE_EXIT_RATE_LIMIT_INVALID)
 	}
 
-	if len(G_CommandLine.P2PClientUploadRateLimit) == 0 {
-		G_CommandLine.P2PClientUploadRateLimit = util.NetLimit()
-	} else if isMatch, _ := regexp.MatchString("^[[:digit:]]+[MK]$", G_CommandLine.P2PClientUploadRateLimit); !isMatch {
+	if isMatch, _ := regexp.MatchString("^[[:digit:]]+[MK]$", G_CommandLine.P2PClientUploadRateLimit); !isMatch {
 		os.Exit(constant.CODE_EXIT_RATE_LIMIT_INVALID)
 	}
 

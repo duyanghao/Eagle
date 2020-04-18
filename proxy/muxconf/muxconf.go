@@ -22,7 +22,6 @@ import (
 func InitMux() {
 	router := map[string]func(http.ResponseWriter, *http.Request){
 		"/":       handler.Process,
-		"/args":   handler.GetArgs,
 		"/debug/": handler.DebugInfo,
 	}
 

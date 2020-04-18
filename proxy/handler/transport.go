@@ -59,21 +59,30 @@ func Run() error {
 	}
 	// transform ratelimiter
 	switch global.G_CommandLine.P2PClientUploadRateLimit[len(global.G_CommandLine.P2PClientUploadRateLimit)-1:] {
-	case "M":
-		c.UploadRateLimit, _ = strconv.Atoi(global.G_CommandLine.P2PClientUploadRateLimit[len(global.G_CommandLine.P2PClientUploadRateLimit)-1:])
-		c.UploadRateLimit *= 1024 * 1024
 	case "K":
 		c.UploadRateLimit, _ = strconv.Atoi(global.G_CommandLine.P2PClientUploadRateLimit[len(global.G_CommandLine.P2PClientUploadRateLimit)-1:])
 		c.UploadRateLimit *= 1024
+	case "M":
+		c.UploadRateLimit, _ = strconv.Atoi(global.G_CommandLine.P2PClientUploadRateLimit[len(global.G_CommandLine.P2PClientUploadRateLimit)-1:])
+		c.UploadRateLimit *= 1024 * 1024
 	}
 	switch global.G_CommandLine.P2PClientDownloadRateLimit[len(global.G_CommandLine.P2PClientDownloadRateLimit)-1:] {
-	case "M":
-		c.DownloadRateLimit, _ = strconv.Atoi(global.G_CommandLine.P2PClientDownloadRateLimit[len(global.G_CommandLine.P2PClientDownloadRateLimit)-1:])
-		c.DownloadRateLimit *= 1024 * 1024
 	case "K":
 		c.DownloadRateLimit, _ = strconv.Atoi(global.G_CommandLine.P2PClientDownloadRateLimit[len(global.G_CommandLine.P2PClientDownloadRateLimit)-1:])
 		c.DownloadRateLimit *= 1024
+	case "M":
+		c.DownloadRateLimit, _ = strconv.Atoi(global.G_CommandLine.P2PClientDownloadRateLimit[len(global.G_CommandLine.P2PClientDownloadRateLimit)-1:])
+		c.DownloadRateLimit *= 1024 * 1024
 	}
+	switch global.G_CommandLine.P2PClientCacheLimitSize[len(global.G_CommandLine.P2PClientCacheLimitSize)-1:] {
+	case "G":
+		c.CacheLimitSize, _ = strconv.ParseInt(global.G_CommandLine.P2PClientCacheLimitSize[len(global.G_CommandLine.P2PClientCacheLimitSize)-1:], 10, 64)
+		c.CacheLimitSize *= 1024 * 1024 * 1024
+	case "T":
+		c.CacheLimitSize, _ = strconv.ParseInt(global.G_CommandLine.P2PClientCacheLimitSize[len(global.G_CommandLine.P2PClientCacheLimitSize)-1:], 10, 64)
+		c.CacheLimitSize *= 1024 * 1024 * 1024 * 1024
+	}
+
 	proxyRoundTripper.P2PClient = btclient.NewBtEngine(global.G_CommandLine.P2PClientRootDir, global.G_P2PClientTrackers, global.G_P2PClientSeeders, c)
 	return proxyRoundTripper.P2PClient.Run()
 }

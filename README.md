@@ -12,6 +12,7 @@ Eagle is a lightweight and intelligent p2p based docker image distribution syste
 * Pluggable storage options. Eagle plugs into reliable blob storage options, like S3 or local FileSystem. The storage interface is simple and new options are easy to add.
 * Peer optimal arithmetic: Eagle supports peer optimal arithmetic to improve performance and save cross-IDC bandwidth.  
 * Host level speed limit: Many downloading tools(wget/curl) only have rate limit for the current download task, but eagle also provides rate limit for the entire host.
+* LRUCache delete policy: Both Seeder and P2PClient achieves the LRUCache delete policy.
 * Strong consistency: Eagle can guarantee that all downloaded files must be consistent even if users do not provide any check code(MD5).
 * Lightweight: Eagle consists of only several necessary components, which makes it understandable, maintainable and easy-to-use.
 
@@ -56,9 +57,9 @@ Eagle uses almost the same components with [kraken](https://github.com/uber/krak
 
 * Host level speed limit
 * Concurrent p2p optimization
+* High-availability
 * Pluggable storage options
 * Peer optimal arithmetic
-* High-availability
 * Push notification mechanism
 * Strong consistency
 
@@ -70,3 +71,4 @@ Eagle uses almost the same components with [kraken](https://github.com/uber/krak
 * [The BitTorrent Protocol Specification](http://bittorrent.org/beps/bep_0003.html)
 * [oci-torrent](https://github.com/hustcat/oci-torrent)
 * [tracker](https://github.com/chihaya/chihaya)
+* [torrent](https://github.com/anacrolix/torrent)
