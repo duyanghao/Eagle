@@ -3,8 +3,8 @@ package btclient
 import (
 	"bytes"
 	"fmt"
-	"github.com/duyanghao/eagle/pkg/lrucache"
-	"github.com/duyanghao/eagle/pkg/utils"
+	"github.com/duyanghao/eagle/pkg/utils/lrucache"
+	"github.com/duyanghao/eagle/pkg/utils/process"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -138,26 +138,30 @@ func (e *BtEngine) Run() error {
 	}
 
 	for _, f := range files {
-		if filepath.Ext(f.Name()) != ".layer" {
-			continue
-		}
-		ss := strings.Split(f.Name(), ".")
-		if len(ss) != 2 {
-			log.Errorf("Found invalid layer file %s", f.Name())
-			continue
-		}
+		go func(f os.FileInfo) {
+			if filepath.Ext(f.Name()) != ".layer" {
+				return
+			}
+			ss := strings.Split(f.Name(), ".")
+			if len(ss) != 2 {
+				log.Errorf("Found invalid layer file %s", f.Name())
+				return
+			}
 
-		id := ss[0]
-		tf := e.GetTorrentFilePath(id)
-		if _, err = os.Lstat(tf); err != nil {
-			continue
-		}
+			id := ss[0]
+			tf := e.GetTorrentFilePath(id)
+			if _, err = os.Lstat(tf); err != nil {
+				return
+			}
 
-		if err = e.StartSeed(id); err != nil {
-			log.Errorf("Start seed %s failed: %v", id, err)
-		}
+			if err = e.StartSeed(id); err != nil {
+				log.Errorf("Start seed %s failed: %v", id, err)
+				return
+			}
+			e.lruCache.CreateIfNotExists(id)
+			e.lruCache.SetComplete(id, f.Size())
+		}(f)
 	}
-
 	return nil
 }
 
@@ -210,7 +214,7 @@ func (e *BtEngine) downloadLayer(req *http.Request, blobUrl string) (int64, erro
 	if err != nil {
 		return -1, fmt.Errorf("UnmarshalInfo failed: %v", err)
 	}
-	progress := utils.NewProgressDownload(id, int(info.TotalLength()), os.Stdout)
+	progress := process.NewProgressDownload(id, int(info.TotalLength()), os.Stdout)
 	// Download layer file
 	if err := e.StartLeecher(id, metaInfo, progress); err != nil {
 		log.Errorf("Download layer %s failed: %v", id, err)
@@ -315,7 +319,7 @@ func (e *BtEngine) StartSeed(id string) error {
 	return nil
 }
 
-func (e *BtEngine) StartLeecher(id string, metaInfo *metainfo.MetaInfo, p *utils.ProgressDownload) error {
+func (e *BtEngine) StartLeecher(id string, metaInfo *metainfo.MetaInfo, p *process.ProgressDownload) error {
 	tt, err := e.client.AddTorrent(metaInfo)
 	if err != nil {
 		return fmt.Errorf("Add torrent failed: %v", err)

@@ -18,7 +18,7 @@ import (
 	"github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/bencode"
 	"github.com/anacrolix/torrent/metainfo"
-	"github.com/duyanghao/eagle/pkg/lrucache"
+	"github.com/duyanghao/eagle/pkg/utils/lrucache"
 	distdigests "github.com/opencontainers/go-digest"
 	log "github.com/sirupsen/logrus"
 )
@@ -132,24 +132,29 @@ func (s *Seeder) Run() error {
 	}
 
 	for _, f := range files {
-		if filepath.Ext(f.Name()) != ".layer" {
-			continue
-		}
-		ss := strings.Split(f.Name(), ".")
-		if len(ss) != 2 {
-			log.Errorf("Found invalid layer file %s", f.Name())
-			continue
-		}
+		go func(f os.FileInfo) {
+			if filepath.Ext(f.Name()) != ".layer" {
+				return
+			}
+			ss := strings.Split(f.Name(), ".")
+			if len(ss) != 2 {
+				log.Errorf("Found invalid layer file %s", f.Name())
+				return
+			}
 
-		id := ss[0]
-		tf := s.GetTorrentFilePath(id)
-		if _, err = os.Lstat(tf); err != nil {
-			continue
-		}
+			id := ss[0]
+			tf := s.GetTorrentFilePath(id)
+			if _, err = os.Lstat(tf); err != nil {
+				return
+			}
 
-		if err = s.StartSeed(id); err != nil {
-			log.Errorf("Start seed %s failed: %v", id, err)
-		}
+			if err = s.StartSeed(id); err != nil {
+				log.Errorf("Start seed %s failed: %v", id, err)
+				return
+			}
+			s.lruCache.CreateIfNotExists(id)
+			s.lruCache.SetComplete(id, f.Size())
+		}(f)
 	}
 
 	return nil
