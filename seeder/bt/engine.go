@@ -143,7 +143,7 @@ func (s *Seeder) Run() error {
 			}
 
 			id := ss[0]
-			tf := s.GetTorrentFilePath(id)
+			tf := s.GetFilePath(id)
 			if _, err = os.Lstat(tf); err != nil {
 				return
 			}
@@ -156,6 +156,13 @@ func (s *Seeder) Run() error {
 			s.lruCache.SetComplete(id, f.Size())
 		}(f)
 	}
+
+	go func() {
+		for {
+			time.Sleep(time.Minute * 2)
+			s.lruCache.Output()
+		}
+	}()
 
 	return nil
 }

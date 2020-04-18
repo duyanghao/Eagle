@@ -4,6 +4,7 @@ import (
 	"container/list"
 	"errors"
 	"sync"
+	log "github.com/sirupsen/logrus"
 )
 
 // EvictCallback is used to get a callback when a cache entry is evicted
@@ -114,7 +115,7 @@ func (c *LruCache) SetComplete(key string, size int64) (evicted bool) {
 	ent.Value.(*entry).value.Size = size
 	close(ent.Value.(*entry).value.Done)
 
-	entry := c.evictList.PushFront(ent)
+	entry := c.evictList.PushFront(ent.Value.(*entry))
 	c.items[key] = entry
 
 	// Verify size not exceeded
@@ -137,4 +138,13 @@ func (c *LruCache) Remove(key string) (present bool) {
 		return true
 	}
 	return false
+}
+
+func (c *LruCache) Output() {
+	c.RLock()
+	defer c.RUnlock()
+	for k, v := range c.items {
+		log.Debugf("cache key: %s and value: %+v", k, v.Value.(*entry).value)
+	}
+	log.Debugf("cache current/limit size %d/%d", c.currentSize, c.limitSize)
 }

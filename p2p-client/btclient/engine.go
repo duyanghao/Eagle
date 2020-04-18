@@ -149,7 +149,7 @@ func (e *BtEngine) Run() error {
 			}
 
 			id := ss[0]
-			tf := e.GetTorrentFilePath(id)
+			tf := e.GetFilePath(id)
 			if _, err = os.Lstat(tf); err != nil {
 				return
 			}
@@ -162,6 +162,12 @@ func (e *BtEngine) Run() error {
 			e.lruCache.SetComplete(id, f.Size())
 		}(f)
 	}
+	/*go func() {
+	        for {
+	                time.Sleep(time.Second * 10)
+	                e.lruCache.Output()
+	        }
+	}()*/
 	return nil
 }
 
