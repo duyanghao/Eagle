@@ -162,12 +162,12 @@ func (e *BtEngine) Run() error {
 			e.lruCache.SetComplete(id, f.Size())
 		}(f)
 	}
-	/*go func() {
-	        for {
-	                time.Sleep(time.Second * 10)
-	                e.lruCache.Output()
-	        }
-	}()*/
+	go func() {
+		for {
+			time.Sleep(time.Minute * 1)
+			e.lruCache.Output()
+		}
+	}()
 	return nil
 }
 
@@ -254,7 +254,7 @@ Execute:
 		for {
 			select {
 			case <-entry.Done:
-				log.Debugf("layer: %s cache generated, switch to normal process", id)
+				log.Debugf("layer: %s cache updated, try to get it again ...", id)
 				goto Loop
 			}
 		}

@@ -3,8 +3,8 @@ package lrucache
 import (
 	"container/list"
 	"errors"
-	"sync"
 	log "github.com/sirupsen/logrus"
+	"sync"
 )
 
 // EvictCallback is used to get a callback when a cache entry is evicted
@@ -146,5 +146,5 @@ func (c *LruCache) Output() {
 	for k, v := range c.items {
 		log.Debugf("cache key: %s and value: %+v", k, v.Value.(*entry).value)
 	}
-	log.Debugf("cache current/limit size %d/%d", c.currentSize, c.limitSize)
+	log.Debugf("cache size current/limit = %d/%d", c.currentSize, c.limitSize)
 }

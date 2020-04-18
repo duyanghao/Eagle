@@ -19,6 +19,7 @@ import (
 	"github.com/anacrolix/torrent/bencode"
 	"github.com/anacrolix/torrent/metainfo"
 	"github.com/duyanghao/eagle/pkg/utils/lrucache"
+	"github.com/duyanghao/eagle/pkg/utils/process"
 	distdigests "github.com/opencontainers/go-digest"
 	log "github.com/sirupsen/logrus"
 )
@@ -245,7 +246,7 @@ Execute:
 		for {
 			select {
 			case <-entry.Done:
-				log.Debugf("layer: %s cache generated, switch to normal process", id)
+				log.Debugf("layer: %s cache updated, try to get it again...", id)
 				goto Loop
 			}
 		}
@@ -332,6 +333,13 @@ func (s *Seeder) StartSeed(id string) error {
 		}
 		log.Infof("Start torrent %v of layer %s success", tt.InfoHash(), id)
 	}()
+
+	p := process.NewProgressDownload(id, int(tt.Info().TotalLength()), os.Stdout)
+	if p != nil {
+		log.Debugf("Waiting bt download %s complete", id)
+		p.WaitComplete(tt)
+		log.Infof("Bt download %s completed", id)
+	}
 
 	return nil
 }

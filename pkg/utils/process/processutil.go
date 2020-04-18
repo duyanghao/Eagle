@@ -24,15 +24,15 @@ func (p *ProgressDownload) WaitComplete(t *torrent.Torrent) {
 	<-t.GotInfo()
 	writeReport("%s: Start bittorent downloading\n", p.id)
 
-	p.bar.Start()
+	//p.bar.Start()
 	for {
 		total := t.Info().TotalLength()
 		completed := t.BytesCompleted()
 		if completed >= total {
 			break
 		}
-		p.bar.Set(int(completed))
-		time.Sleep(500 * time.Millisecond)
+		//p.bar.Set(int(completed))
+		time.Sleep(10 * time.Millisecond)
 	}
 	writeReport("\n")
 }
