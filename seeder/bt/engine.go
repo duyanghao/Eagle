@@ -1,9 +1,10 @@
 package bt
 
 import (
+	"context"
 	"fmt"
 	"github.com/duyanghao/eagle/pkg/constants"
-	"io"
+	pb "github.com/duyanghao/eagle/proto/metainfo"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -169,14 +170,14 @@ func (s *Seeder) Run() error {
 }
 
 // getDataFromOrigin get layer from remote origin
-func (s *Seeder) getDataFromOrigin(r *http.Request) ([]byte, error) {
+func (s *Seeder) getDataFromOrigin(reqUrl string) ([]byte, error) {
 	// construct encoded endpoint
 	//origin := r.Header.Get("Location")
 	Url, err := url.Parse(fmt.Sprintf("http://%s", s.origin))
 	if err != nil {
 		return nil, err
 	}
-	Url.Path += r.URL.Path
+	Url.Path += reqUrl
 	endpoint := Url.String()
 	req, err := http.NewRequest("GET", endpoint, nil)
 	if err != nil {
@@ -199,10 +200,10 @@ func (s *Seeder) getDataFromOrigin(r *http.Request) ([]byte, error) {
 }
 
 // getMetaData generates layer file and its relevant torrent
-func (s *Seeder) getMetaData(r *http.Request, id string) (int, error) {
+func (s *Seeder) getMetaData(reqUrl, id string) (int, error) {
 	// step1 - get data from origin
 	log.Debugf(fmt.Sprintf("torrent of layer: %s not found, let's fetch data from origin ...", id))
-	data, err := s.getDataFromOrigin(r)
+	data, err := s.getDataFromOrigin(reqUrl)
 	if err != nil {
 		log.Errorf("get torrent of layer: %s failed, error: %v", id, err)
 		return len(data), err
@@ -220,7 +221,7 @@ func (s *Seeder) getMetaData(r *http.Request, id string) (int, error) {
 }
 
 // getMetaDataSync generates layer file and its relevant torrent only once for each of layer
-func (s *Seeder) getMetaDataSync(r *http.Request, id string) error {
+func (s *Seeder) getMetaDataSync(reqUrl, id string) error {
 	// get only once each of layer
 	torrentFile := s.GetTorrentFilePath(id)
 	layerFile := s.GetFilePath(id)
@@ -255,7 +256,7 @@ Execute:
 	if exist {
 		goto Execute
 	} else { // get layer from origin
-		size, err := s.getMetaData(r, id)
+		size, err := s.getMetaData(reqUrl, id)
 		if err != nil {
 			log.Errorf("getMetaData layer: %s failed, %v, try to remove its relevant records ...", id, err)
 			os.Remove(torrentFile)
@@ -270,26 +271,21 @@ Execute:
 }
 
 // GetMetaData get torrent of layer
-func (s *Seeder) GetMetaData(w http.ResponseWriter, r *http.Request) {
-	log.Debugf("access: %s", r.URL.String())
-	digest := r.URL.Path[strings.LastIndex(r.URL.Path, "/")+1:]
+func (s *Seeder) GetMetaInfo(ctx context.Context, metaInfoReq *pb.MetaInfoRequest) (*pb.MetaInfoReply, error) {
+	log.Debugf("access: %s", metaInfoReq.Url)
+	digest := metaInfoReq.Url[strings.LastIndex(metaInfoReq.Url, "/")+1:]
 	id := distdigests.Digest(digest).Encoded()
 	log.Debugf("start to get metadata of layer %s", id)
-	err := s.getMetaDataSync(r, id)
+	err := s.getMetaDataSync(metaInfoReq.Url, id)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("get torrent failed: %v", err), http.StatusInternalServerError)
-		return
+		return nil, fmt.Errorf("get metainfo from origin failed: %v", err)
 	}
 	torrentFile := s.GetTorrentFilePath(id)
-	f, err := os.Open(torrentFile)
+	content, err := ioutil.ReadFile(torrentFile)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("open torrent failed: %v", err), http.StatusInternalServerError)
-		return
+		return nil, fmt.Errorf("read metainfo file failed: %v", err)
 	}
-	if _, err := io.Copy(w, f); err != nil {
-		http.Error(w, fmt.Sprintf("copy torrent failed: %v", err), http.StatusInternalServerError)
-		return
-	}
+	return &pb.MetaInfoReply{Metainfo: content}, nil
 }
 
 func (s *Seeder) RootDir() string {

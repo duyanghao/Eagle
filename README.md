@@ -56,9 +56,9 @@ Eagle uses almost the same components with [kraken](https://github.com/uber/krak
 ## TODO
 
 * Host level speed limit
-* Concurrent p2p optimization
-* High-availability
-* Pluggable storage options
+* Concurrent p2p optimization(LRUCache)
+* High-availability(client-side)
+* Pluggable storage options(Refers to Kraken)
 * Peer optimal arithmetic
 * Push notification mechanism
 * Strong consistency
@@ -72,3 +72,4 @@ Eagle uses almost the same components with [kraken](https://github.com/uber/krak
 * [oci-torrent](https://github.com/hustcat/oci-torrent)
 * [tracker](https://github.com/chihaya/chihaya)
 * [torrent](https://github.com/anacrolix/torrent)
+* [etcd Client Design](https://github.com/etcd-io/etcd/blob/master/Documentation/learning/design-client.md)

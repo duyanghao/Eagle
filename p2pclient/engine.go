@@ -1,14 +1,13 @@
-package btclient
+package p2pclient
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"github.com/duyanghao/eagle/pkg/utils/lrucache"
 	"github.com/duyanghao/eagle/pkg/utils/process"
 	"io/ioutil"
-	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -20,6 +19,7 @@ import (
 	"github.com/anacrolix/torrent/bencode"
 	"github.com/anacrolix/torrent/metainfo"
 	"github.com/duyanghao/eagle/pkg/constants"
+	pb "github.com/duyanghao/eagle/proto/metainfo"
 	distdigests "github.com/opencontainers/go-digest"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/time/rate"
@@ -44,14 +44,14 @@ type idInfo struct {
 // BtEngine backed by anacrolix/torrent
 type BtEngine struct {
 	sync.RWMutex
-	lruCache   *lrucache.LruCache
-	client     *torrent.Client
-	httpClient *http.Client
-	config     *Config
-	idInfos    map[string]*torrent.Torrent // image ID -> InfoHash
-	rootDir    string
-	trackers   []string
-	seeders    []string
+	metaInfoClient pb.MetaInfoClient
+	lruCache       *lrucache.LruCache
+	client         *torrent.Client
+	config         *Config
+	idInfos        map[string]*torrent.Torrent // image ID -> InfoHash
+	rootDir        string
+	trackers       []string
+	seeders        []string
 
 	torrentDir string
 	dataDir    string
@@ -77,23 +77,11 @@ func NewBtEngine(root string, trackers, seeders []string, c *Config) *BtEngine {
 		torrentDir: torrentDir,
 		config:     c,
 		idInfos:    make(map[string]*torrent.Torrent),
-		httpClient: &http.Client{
-			Transport: &http.Transport{
-				Proxy: http.ProxyFromEnvironment,
-				DialContext: (&net.Dialer{
-					Timeout:   30 * time.Second,
-					KeepAlive: 30 * time.Second,
-					DualStack: true,
-				}).DialContext,
-				MaxIdleConns:        100,
-				MaxIdleConnsPerHost: 100,
-				IdleConnTimeout:     90 * time.Second,
-			},
-		},
 	}
 }
 
 func (e *BtEngine) Run() error {
+	// create torrent client
 	if err := os.MkdirAll(e.dataDir, 0700); err != nil && !os.IsExist(err) {
 		return nil
 	}
@@ -122,8 +110,13 @@ func (e *BtEngine) Run() error {
 	if err != nil {
 		return err
 	}
-
 	e.client = client
+
+	// create metainfo client
+	e.metaInfoClient, err = e.newMetaInfoClient()
+	if err != nil {
+		return err
+	}
 
 	// create lruCache
 	e.lruCache, err = lrucache.NewLRU(c.CacheLimitSize, e.DeleteTorrent)
@@ -171,41 +164,18 @@ func (e *BtEngine) Run() error {
 	return nil
 }
 
-func (e *BtEngine) GetTorrentFromSeeder(r *http.Request, blobUrl string) ([]byte, error) {
-	// construct encoded endpoint
-	Url, err := url.Parse(fmt.Sprintf("http://%s", e.seeders[0]))
-	if err != nil {
-		return nil, err
-	}
-	Url.Path += r.URL.Path
-	endpoint := Url.String()
-	log.Debugf("GetTorrentFromSeeder endpoint: %s", endpoint)
-	req, err := http.NewRequest("GET", endpoint, nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Add("Location", r.URL.Host)
-	// use httpClient to send request
-	rsp, err := e.httpClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	// close the connection to reuse it
-	defer rsp.Body.Close()
-	// check status code
-	if rsp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("GetTorrentFromSeeder rsp error: %v", rsp)
-	}
-	// parse rsp body
-	t, err := ioutil.ReadAll(rsp.Body)
-	return t, err
+func (e *BtEngine) GetTorrentFromSeeder(blobUrl string) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	metaInfo, err := e.metaInfoClient.GetMetaInfo(ctx, &pb.MetaInfoRequest{Url: blobUrl})
+	return metaInfo.Metainfo, err
 }
 
 func (e *BtEngine) downloadLayer(req *http.Request, blobUrl string) (int64, error) {
 	digest := blobUrl[strings.LastIndex(blobUrl, "/")+1:]
 	id := distdigests.Digest(digest).Encoded()
 	log.Debugf("Start leeching layer %s", id)
-	t, err := e.GetTorrentFromSeeder(req, blobUrl)
+	t, err := e.GetTorrentFromSeeder(blobUrl)
 	if err != nil {
 		log.Errorf("Get torrent data from seeder for %s failed: %v", id, err)
 		return -1, err

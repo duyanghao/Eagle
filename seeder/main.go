@@ -2,11 +2,11 @@ package main
 
 import (
 	"flag"
-	"fmt"
+	pb "github.com/duyanghao/eagle/proto/metainfo"
 	"github.com/duyanghao/eagle/seeder/bt"
-	"github.com/duyanghao/eagle/seeder/muxconf"
 	log "github.com/sirupsen/logrus"
-	"net/http"
+	"google.golang.org/grpc"
+	"net"
 	"strconv"
 	"strings"
 )
@@ -15,24 +15,29 @@ var (
 	argRootDataDir string
 	argOrigin      string
 	argTrackers    string
-	argPort        int
+	argPort        string
 	argVerbose     bool
 	argLimitSize   string
 	seeder         *bt.Seeder
 )
 
 func main() {
-	log.Infof("launch seeder on port: %d", argPort)
+	log.Infof("launch seeder on port: %s", argPort)
 
 	// start seeder
-	err := http.ListenAndServe(fmt.Sprintf(":%d", argPort), nil)
+	lis, err := net.Listen("tcp", argPort)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("failed to listen: %v", err)
+	}
+	s := grpc.NewServer()
+	pb.RegisterMetaInfoServer(s, seeder)
+	if err := s.Serve(lis); err != nil {
+		log.Fatalf("failed to serve: %v", err)
 	}
 }
 
 func init() {
-	flag.IntVar(&argPort, "port", 65005, "The port seeder listens to")
+	flag.StringVar(&argPort, "port", ":65005", "The port seeder listens to")
 	flag.StringVar(&argRootDataDir, "rootdir", "/data/", "The root directory of seeder")
 	flag.StringVar(&argOrigin, "origin", "", "The data origin of seeder")
 	flag.StringVar(&argTrackers, "trackers", "", "The tracker list of seeder")
@@ -65,5 +70,4 @@ func init() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	muxconf.InitMux(seeder)
 }

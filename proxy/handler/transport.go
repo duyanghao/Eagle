@@ -23,14 +23,14 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/duyanghao/eagle/p2p-client/btclient"
+	"github.com/duyanghao/eagle/p2pclient"
 	"github.com/duyanghao/eagle/proxy/global"
 )
 
 type ProxyRoundTripper struct {
 	Round     *Transport
 	Round2    RoundTripper
-	P2PClient *btclient.BtEngine
+	P2PClient *p2pclient.BtEngine
 }
 
 var proxyRoundTripper = &ProxyRoundTripper{
@@ -51,8 +51,8 @@ var proxyRoundTripper = &ProxyRoundTripper{
 var compiler = regexp.MustCompile("^.+/blobs/sha256.*$")
 
 func Run() error {
-	// construct btclient config
-	c := &btclient.Config{
+	// construct p2pclient config
+	c := &p2pclient.Config{
 		EnableUpload:  true,
 		EnableSeeding: true,
 		IncomingPort:  50007,
@@ -83,7 +83,7 @@ func Run() error {
 		c.CacheLimitSize *= 1024 * 1024 * 1024 * 1024
 	}
 
-	proxyRoundTripper.P2PClient = btclient.NewBtEngine(global.G_CommandLine.P2PClientRootDir, global.G_P2PClientTrackers, global.G_P2PClientSeeders, c)
+	proxyRoundTripper.P2PClient = p2pclient.NewBtEngine(global.G_CommandLine.P2PClientRootDir, global.G_P2PClientTrackers, global.G_P2PClientSeeders, c)
 	return proxyRoundTripper.P2PClient.Run()
 }
 
