@@ -164,10 +164,10 @@ func (e *BtEngine) Run() error {
 	return nil
 }
 
-func (e *BtEngine) GetTorrentFromSeeder(blobUrl string) ([]byte, error) {
+func (e *BtEngine) GetTorrentFromSeeder(req *http.Request, blobUrl string) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	metaInfo, err := e.metaInfoClient.GetMetaInfo(ctx, &pb.MetaInfoRequest{Url: blobUrl})
+	metaInfo, err := e.metaInfoClient.GetMetaInfo(ctx, &pb.MetaInfoRequest{Url: req.URL.Path})
 	return metaInfo.Metainfo, err
 }
 
@@ -175,7 +175,7 @@ func (e *BtEngine) downloadLayer(req *http.Request, blobUrl string) (int64, erro
 	digest := blobUrl[strings.LastIndex(blobUrl, "/")+1:]
 	id := distdigests.Digest(digest).Encoded()
 	log.Debugf("Start leeching layer %s", id)
-	t, err := e.GetTorrentFromSeeder(blobUrl)
+	t, err := e.GetTorrentFromSeeder(req, blobUrl)
 	if err != nil {
 		log.Errorf("Get torrent data from seeder for %s failed: %v", id, err)
 		return -1, err
