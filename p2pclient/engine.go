@@ -253,17 +253,17 @@ Execute:
 		case err = <-errChan:
 			size := <-sizeChan
 			if err != nil {
-				log.Errorf("download layer: %s failed, %v, try to remove its relevant records ...", id, err)
+				log.Errorf("Download layer: %s failed, %v, try to remove its relevant records ...", id, err)
 				os.Remove(torrentFile)
 				os.Remove(layerFile)
 				e.lruCache.Remove(id)
 			} else {
-				log.Infof("download layer: %s successfully, try to update status ...", id)
+				log.Infof("Download layer: %s successfully, try to update status ...", id)
 				e.lruCache.SetComplete(id, size)
 			}
 		case <-time.After(e.config.DownloadTimeout * time.Second):
-			err = fmt.Errorf("download layer: %s timeout(%s s)", id, e.config.DownloadTimeout)
-			log.Errorf("download layer: %s timeout(%s s), %v, try to remove its relevant records ...", id, e.config.DownloadTimeout, err)
+			err = fmt.Errorf("Download layer: %s timeout %s", id, e.config.DownloadTimeout)
+			log.Errorf("Download layer: %s timeout %s, %v, try to remove its relevant records ...", id, e.config.DownloadTimeout, err)
 			os.Remove(torrentFile)
 			os.Remove(layerFile)
 			e.lruCache.Remove(id)

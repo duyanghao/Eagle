@@ -280,8 +280,8 @@ Execute:
 				s.lruCache.SetComplete(id, int64(size))
 			}
 		case <-time.After(s.config.DownloadTimeout * time.Second):
-			err = fmt.Errorf("GetMetaData layer: %s timeout(%s s)", id, s.config.DownloadTimeout)
-			log.Errorf("GetMetaData layer: %s timeout(%s s), %v, try to remove its relevant records ...", id, s.config.DownloadTimeout, err)
+			err = fmt.Errorf("GetMetaData layer: %s timeout %s", id, s.config.DownloadTimeout)
+			log.Errorf("GetMetaData layer: %s timeout %s, %v, try to remove its relevant records ...", id, s.config.DownloadTimeout, err)
 			os.Remove(torrentFile)
 			os.Remove(layerFile)
 			s.lruCache.Remove(id)
