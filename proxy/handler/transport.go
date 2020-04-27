@@ -53,9 +53,10 @@ var compiler = regexp.MustCompile("^.+/blobs/sha256.*$")
 func Run() error {
 	// construct p2pclient config
 	c := &p2pclient.Config{
-		EnableUpload:  true,
-		EnableSeeding: true,
-		IncomingPort:  50007,
+		EnableUpload:    true,
+		EnableSeeding:   true,
+		IncomingPort:    50007,
+		DownloadTimeout: time.Duration(global.G_CommandLine.P2PClientDownloadTimeout),
 	}
 	// transform ratelimiter
 	switch global.G_CommandLine.P2PClientUploadRateLimit[len(global.G_CommandLine.P2PClientUploadRateLimit)-1:] {

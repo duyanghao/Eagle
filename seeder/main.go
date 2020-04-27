@@ -9,16 +9,18 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"time"
 )
 
 var (
-	argRootDataDir string
-	argOrigin      string
-	argTrackers    string
-	argPort        string
-	argVerbose     bool
-	argLimitSize   string
-	seeder         *bt.Seeder
+	argRootDataDir     string
+	argOrigin          string
+	argTrackers        string
+	argPort            string
+	argVerbose         bool
+	argLimitSize       string
+	argDownloadTimeout int
+	seeder             *bt.Seeder
 )
 
 func main() {
@@ -43,6 +45,7 @@ func init() {
 	flag.StringVar(&argTrackers, "trackers", "", "The tracker list of seeder")
 	flag.BoolVar(&argVerbose, "verbose", false, "verbose")
 	flag.StringVar(&argLimitSize, "limitsize", "100G", "disk cache limit,format:xxxT/G")
+	flag.IntVar(&argDownloadTimeout, "timeout", 30, "seeder download from origin timeout(s)")
 	flag.Parse()
 	if argVerbose {
 		log.SetLevel(log.DebugLevel)
@@ -51,9 +54,10 @@ func init() {
 	}
 	trackers := strings.Split(argTrackers, ",")
 	c := &bt.Config{
-		EnableUpload:  true,
-		EnableSeeding: true,
-		IncomingPort:  50017,
+		EnableUpload:    true,
+		EnableSeeding:   true,
+		IncomingPort:    50017,
+		DownloadTimeout: time.Duration(argDownloadTimeout),
 	}
 	// transform ratelimiter
 	switch argLimitSize[len(argLimitSize)-1:] {

@@ -32,6 +32,7 @@ type Config struct {
 	UploadRateLimit   int
 	DownloadRateLimit int
 	CacheLimitSize    int64
+	DownloadTimeout   time.Duration
 }
 
 type idInfo struct {
@@ -174,7 +175,7 @@ func (e *BtEngine) GetTorrentFromSeeder(req *http.Request, blobUrl string) ([]by
 	return metaInfo.Metainfo, err
 }
 
-func (e *BtEngine) downloadLayer(req *http.Request, blobUrl string) (int64, error) {
+func (e *BtEngine) downloadLayer(ctx context.Context, req *http.Request, blobUrl string) (int64, error) {
 	digest := blobUrl[strings.LastIndex(blobUrl, "/")+1:]
 	id := distdigests.Digest(digest).Encoded()
 	log.Debugf("Start leeching layer %s", id)
@@ -195,7 +196,7 @@ func (e *BtEngine) downloadLayer(req *http.Request, blobUrl string) (int64, erro
 	}
 	progress := process.NewProgressDownload(id, int(info.TotalLength()), os.Stdout)
 	// Download layer file
-	if err := e.StartLeecher(id, metaInfo, progress); err != nil {
+	if err := e.StartLeecher(ctx, id, metaInfo, progress); err != nil {
 		log.Errorf("Download layer %s failed: %v", id, err)
 		return info.TotalLength(), err
 	} else {
@@ -236,15 +237,34 @@ Execute:
 	if exist {
 		goto Execute
 	} else { // get layer from origin
-		size, err := e.downloadLayer(req, blobUrl)
-		if err != nil {
-			log.Errorf("download layer: %s failed, %v, try to remove its relevant records ...", id, err)
+		var err error
+		errChan := make(chan error, 1)
+		sizeChan := make(chan int64, 1)
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		go func() {
+			size, err := e.downloadLayer(ctx, req, blobUrl)
+			sizeChan <- size
+			errChan <- err
+		}()
+		select {
+		case err = <-errChan:
+			size := <-sizeChan
+			if err != nil {
+				log.Errorf("download layer: %s failed, %v, try to remove its relevant records ...", id, err)
+				os.Remove(torrentFile)
+				os.Remove(layerFile)
+				e.lruCache.Remove(id)
+			} else {
+				log.Infof("download layer: %s successfully, try to update status ...", id)
+				e.lruCache.SetComplete(id, size)
+			}
+		case <-time.After(e.config.DownloadTimeout * time.Second):
+			err = fmt.Errorf("download layer: %s timeout(%s s)", id, e.config.DownloadTimeout)
+			log.Errorf("download layer: %s timeout(%s s), %v, try to remove its relevant records ...", id, e.config.DownloadTimeout, err)
 			os.Remove(torrentFile)
 			os.Remove(layerFile)
 			e.lruCache.Remove(id)
-		} else {
-			log.Infof("download layer: %s successfully, try to update status ...", id)
-			e.lruCache.SetComplete(id, int64(size))
 		}
 		return layerFile, err
 	}
@@ -298,7 +318,7 @@ func (e *BtEngine) StartSeed(id string) error {
 	return nil
 }
 
-func (e *BtEngine) StartLeecher(id string, metaInfo *metainfo.MetaInfo, p *process.ProgressDownload) error {
+func (e *BtEngine) StartLeecher(ctx context.Context, id string, metaInfo *metainfo.MetaInfo, p *process.ProgressDownload) error {
 	tt, err := e.client.AddTorrent(metaInfo)
 	if err != nil {
 		return fmt.Errorf("Add torrent failed: %v", err)
@@ -315,7 +335,7 @@ func (e *BtEngine) StartLeecher(id string, metaInfo *metainfo.MetaInfo, p *proce
 
 	if p != nil {
 		log.Debugf("Waiting bt download %s complete", id)
-		p.WaitComplete(tt)
+		p.WaitComplete(ctx, tt)
 		log.Infof("Bt download %s completed", id)
 	}
 	return nil

@@ -54,6 +54,7 @@ func initParam() {
 	flag.StringVar(&G_CommandLine.P2PClientDownloadRateLimit, "drl", "50M", "net speed limit for bt download,format:xxxM/K")
 	flag.StringVar(&G_CommandLine.P2PClientUploadRateLimit, "url", "50M", "net speed limit for bt upload,format:xxxM/K")
 	flag.StringVar(&G_CommandLine.P2PClientCacheLimitSize, "limitsize", "100G", "cache size limit for p2p client,format:xxxT/G")
+	flag.IntVar(&G_CommandLine.P2PClientDownloadTimeout, "timeout", 30, "p2pclient download timeout(s)")
 
 	flag.Parse()
 

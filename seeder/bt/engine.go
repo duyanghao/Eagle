@@ -35,6 +35,7 @@ type Config struct {
 	UploadRateLimit   int
 	DownloadRateLimit int
 	CacheLimitSize    int64
+	DownloadTimeout   time.Duration
 }
 
 // Seeder backed by anacrolix/torrent
@@ -150,7 +151,7 @@ func (s *Seeder) Run() error {
 				return
 			}
 
-			if err = s.StartSeed(id); err != nil {
+			if err = s.StartSeed(context.Background(), id); err != nil {
 				log.Errorf("Start seed %s failed: %v", id, err)
 				return
 			}
@@ -200,7 +201,7 @@ func (s *Seeder) getDataFromOrigin(reqUrl string) ([]byte, error) {
 }
 
 // getMetaData generates layer file and its relevant torrent
-func (s *Seeder) getMetaData(reqUrl, id string) (int, error) {
+func (s *Seeder) getMetaData(ctx context.Context, reqUrl, id string) (int, error) {
 	// step1 - get data from origin
 	log.Debugf(fmt.Sprintf("torrent of layer: %s not found, let's fetch data from origin ...", id))
 	data, err := s.getDataFromOrigin(reqUrl)
@@ -217,7 +218,7 @@ func (s *Seeder) getMetaData(reqUrl, id string) (int, error) {
 	}
 	// step3 - start seed
 	log.Debugf(fmt.Sprintf("start to seed layer: %s ...", id))
-	return len(data), s.StartSeed(id)
+	return len(data), s.StartSeed(ctx, id)
 }
 
 // getMetaDataSync generates layer file and its relevant torrent only once for each of layer
@@ -256,15 +257,34 @@ Execute:
 	if exist {
 		goto Execute
 	} else { // get layer from origin
-		size, err := s.getMetaData(reqUrl, id)
-		if err != nil {
-			log.Errorf("getMetaData layer: %s failed, %v, try to remove its relevant records ...", id, err)
+		var err error
+		errChan := make(chan error, 1)
+		sizeChan := make(chan int, 1)
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		go func() {
+			size, err := s.getMetaData(ctx, reqUrl, id)
+			sizeChan <- size
+			errChan <- err
+		}()
+		select {
+		case err = <-errChan:
+			size := <-sizeChan
+			if err != nil {
+				log.Errorf("getMetaData layer: %s failed, %v, try to remove its relevant records ...", id, err)
+				os.Remove(torrentFile)
+				os.Remove(layerFile)
+				s.lruCache.Remove(id)
+			} else {
+				log.Infof("getMetaData layer: %s successfully, try to update status ...", id)
+				s.lruCache.SetComplete(id, int64(size))
+			}
+		case <-time.After(s.config.DownloadTimeout * time.Second):
+			err = fmt.Errorf("getMetaData layer: %s timeout(%s s)", id, s.config.DownloadTimeout)
+			log.Errorf("getMetaData layer: %s timeout(%s s), %v, try to remove its relevant records ...", id, s.config.DownloadTimeout, err)
 			os.Remove(torrentFile)
 			os.Remove(layerFile)
 			s.lruCache.Remove(id)
-		} else {
-			log.Infof("getMetaData layer: %s successfully, try to update status ...", id)
-			s.lruCache.SetComplete(id, int64(size))
 		}
 		return err
 	}
@@ -300,7 +320,7 @@ func (s *Seeder) GetFilePath(id string) string {
 	return path.Join(s.rootDir, "data", id+".layer")
 }
 
-func (s *Seeder) StartSeed(id string) error {
+func (s *Seeder) StartSeed(ctx context.Context, id string) error {
 	tf := s.GetTorrentFilePath(id)
 	if _, err := os.Lstat(tf); err != nil {
 		// Torrent file not exist, create it
@@ -333,7 +353,7 @@ func (s *Seeder) StartSeed(id string) error {
 	p := process.NewProgressDownload(id, int(tt.Info().TotalLength()), os.Stdout)
 	if p != nil {
 		log.Debugf("Waiting bt download %s complete", id)
-		p.WaitComplete(tt)
+		p.WaitComplete(ctx, tt)
 		log.Infof("Bt download %s completed", id)
 	}
 

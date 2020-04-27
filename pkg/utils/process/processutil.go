@@ -6,6 +6,7 @@ import (
 	"io"
 	"time"
 
+	"context"
 	pb "gopkg.in/cheggaaa/pb.v1"
 )
 
@@ -15,7 +16,7 @@ type ProgressDownload struct {
 	bar    *pb.ProgressBar
 }
 
-func (p *ProgressDownload) WaitComplete(t *torrent.Torrent) {
+func (p *ProgressDownload) WaitComplete(ctx context.Context, t *torrent.Torrent) {
 	writeReport := func(f string, a ...interface{}) {
 		fmt.Fprintf(p.output, f, a...)
 	}
@@ -24,15 +25,20 @@ func (p *ProgressDownload) WaitComplete(t *torrent.Torrent) {
 	<-t.GotInfo()
 	writeReport("%s: Start bittorent downloading\n", p.id)
 
-	//p.bar.Start()
+Loop:
 	for {
-		total := t.Info().TotalLength()
-		completed := t.BytesCompleted()
-		if completed >= total {
-			break
+		select {
+		case <-ctx.Done():
+			writeReport("%s: Stop bittorent downloading\n", p.id)
+			break Loop
+		default:
+			total := t.Info().TotalLength()
+			completed := t.BytesCompleted()
+			if completed >= total {
+				break Loop
+			}
+			time.Sleep(10 * time.Millisecond)
 		}
-		//p.bar.Set(int(completed))
-		time.Sleep(10 * time.Millisecond)
 	}
 	writeReport("\n")
 }

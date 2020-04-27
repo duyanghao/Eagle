@@ -38,6 +38,7 @@ type CommandParam struct {
 	P2PClientDownloadRateLimit string
 	P2PClientUploadRateLimit   string
 	P2PClientCacheLimitSize    string
+	P2PClientDownloadTimeout   int
 }
 
 var (
