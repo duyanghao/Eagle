@@ -21,15 +21,16 @@ func (p *ProgressDownload) WaitComplete(ctx context.Context, t *torrent.Torrent)
 		fmt.Fprintf(p.output, f, a...)
 	}
 
-	writeReport("%s: Getting torrent info\n", p.id)
+	writeReport("Waiting bt download %s complete ...\n", p.id)
+	writeReport("Getting torrent info %s\n", p.id)
 	<-t.GotInfo()
-	writeReport("%s: Start bittorent downloading\n", p.id)
+	writeReport("Start bittorent downloading %s\n", p.id)
 
 Loop:
 	for {
 		select {
 		case <-ctx.Done():
-			writeReport("%s: Stop bittorent downloading\n", p.id)
+			writeReport("Stop bittorent downloading %s\n", p.id)
 			break Loop
 		default:
 			total := t.Info().TotalLength()
@@ -40,7 +41,7 @@ Loop:
 			time.Sleep(10 * time.Millisecond)
 		}
 	}
-	writeReport("\n")
+	writeReport("Download bt %s completed\n", p.id)
 }
 
 func NewProgressDownload(id string, size int, output io.Writer) *ProgressDownload {

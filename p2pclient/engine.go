@@ -178,12 +178,13 @@ func (e *BtEngine) GetTorrentFromSeeder(req *http.Request, blobUrl string) ([]by
 func (e *BtEngine) downloadLayer(ctx context.Context, req *http.Request, blobUrl string) (int64, error) {
 	digest := blobUrl[strings.LastIndex(blobUrl, "/")+1:]
 	id := distdigests.Digest(digest).Encoded()
-	log.Debugf("Start leeching layer %s", id)
+	log.Debugf("Start to download metainfo of layer %s", id)
 	t, err := e.GetTorrentFromSeeder(req, blobUrl)
 	if err != nil {
 		log.Errorf("Get torrent data from seeder for %s failed: %v", id, err)
 		return -1, err
 	}
+	log.Debugf("Download metainfo of layer %s successfully", id)
 	// Load torrent data
 	reader := bytes.NewBuffer(t)
 	metaInfo, err := metainfo.Load(reader)
@@ -196,6 +197,7 @@ func (e *BtEngine) downloadLayer(ctx context.Context, req *http.Request, blobUrl
 	}
 	progress := process.NewProgressDownload(id, int(info.TotalLength()), os.Stdout)
 	// Download layer file
+	log.Debugf("Start to download layer %s", id)
 	if err := e.StartLeecher(ctx, id, metaInfo, progress); err != nil {
 		log.Errorf("Download layer %s failed: %v", id, err)
 		return info.TotalLength(), err
@@ -334,9 +336,7 @@ func (e *BtEngine) StartLeecher(ctx context.Context, id string, metaInfo *metain
 	}()
 
 	if p != nil {
-		log.Debugf("Waiting bt download %s complete", id)
 		p.WaitComplete(ctx, tt)
-		log.Infof("Bt download %s completed", id)
 	}
 	return nil
 }

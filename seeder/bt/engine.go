@@ -203,21 +203,21 @@ func (s *Seeder) getDataFromOrigin(reqUrl string) ([]byte, error) {
 // getMetaData generates layer file and its relevant torrent
 func (s *Seeder) getMetaData(ctx context.Context, reqUrl, id string) (int, error) {
 	// step1 - get data from origin
-	log.Debugf(fmt.Sprintf("torrent of layer: %s not found, let's fetch data from origin ...", id))
+	log.Debugf("Torrent of layer: %s not found, let's fetch data from origin ...", id)
 	data, err := s.getDataFromOrigin(reqUrl)
 	if err != nil {
 		log.Errorf("get torrent of layer: %s failed, error: %v", id, err)
 		return len(data), err
 	}
 	// step2 - generate layerFile
-	log.Debugf(fmt.Sprintf("generate dataFile of layer: %s ...", id))
+	log.Debugf("Start to generate dataFile of layer: %s ...", id)
 	layerFile := s.GetFilePath(id)
 	err = ioutil.WriteFile(layerFile, data, 0644)
 	if err != nil {
 		return len(data), err
 	}
 	// step3 - start seed
-	log.Debugf(fmt.Sprintf("start to seed layer: %s ...", id))
+	log.Debugf("Start to seed layer: %s ...", id)
 	return len(data), s.StartSeed(ctx, id)
 }
 
@@ -232,23 +232,23 @@ Execute:
 	if exist {
 		if entry.Completed {
 			if _, err := os.Stat(torrentFile); err != nil {
-				log.Errorf("failed to find torrent file of cached layer: %s, try to remove its relevant records", id)
+				log.Errorf("Failed to find torrent file of cached layer: %s, try to remove its relevant records", id)
 				s.lruCache.Remove(id)
 				return err
 			}
 			if _, err := os.Stat(layerFile); err != nil {
-				log.Errorf("failed to find data file of cached layer: %s, try to remove its relevant records", id)
+				log.Errorf("Failed to find data file of cached layer: %s, try to remove its relevant records", id)
 				s.lruCache.Remove(id)
 				return err
 			}
-			log.Infof("layer: %s has been cached, return directly", id)
+			log.Infof("Layer: %s has been cached, return directly", id)
 			return nil
 		}
 		// wait
 		for {
 			select {
 			case <-entry.Done:
-				log.Debugf("layer: %s cache updated, try to get it again...", id)
+				log.Debugf("Layer: %s cache updated, try to get it again...", id)
 				goto Loop
 			}
 		}
@@ -271,17 +271,17 @@ Execute:
 		case err = <-errChan:
 			size := <-sizeChan
 			if err != nil {
-				log.Errorf("getMetaData layer: %s failed, %v, try to remove its relevant records ...", id, err)
+				log.Errorf("GetMetaData layer: %s failed, %v, try to remove its relevant records ...", id, err)
 				os.Remove(torrentFile)
 				os.Remove(layerFile)
 				s.lruCache.Remove(id)
 			} else {
-				log.Infof("getMetaData layer: %s successfully, try to update status ...", id)
+				log.Infof("GetMetaData layer: %s successfully, try to update status ...", id)
 				s.lruCache.SetComplete(id, int64(size))
 			}
 		case <-time.After(s.config.DownloadTimeout * time.Second):
-			err = fmt.Errorf("getMetaData layer: %s timeout(%s s)", id, s.config.DownloadTimeout)
-			log.Errorf("getMetaData layer: %s timeout(%s s), %v, try to remove its relevant records ...", id, s.config.DownloadTimeout, err)
+			err = fmt.Errorf("GetMetaData layer: %s timeout(%s s)", id, s.config.DownloadTimeout)
+			log.Errorf("GetMetaData layer: %s timeout(%s s), %v, try to remove its relevant records ...", id, s.config.DownloadTimeout, err)
 			os.Remove(torrentFile)
 			os.Remove(layerFile)
 			s.lruCache.Remove(id)
@@ -292,18 +292,18 @@ Execute:
 
 // GetMetaData get torrent of layer
 func (s *Seeder) GetMetaInfo(ctx context.Context, metaInfoReq *pb.MetaInfoRequest) (*pb.MetaInfoReply, error) {
-	log.Debugf("access: %s", metaInfoReq.Url)
+	log.Debugf("Access: %s", metaInfoReq.Url)
 	digest := metaInfoReq.Url[strings.LastIndex(metaInfoReq.Url, "/")+1:]
 	id := distdigests.Digest(digest).Encoded()
-	log.Debugf("start to get metadata of layer %s", id)
+	log.Debugf("Start to get metadata of layer %s", id)
 	err := s.getMetaDataSync(metaInfoReq.Url, id)
 	if err != nil {
-		return nil, fmt.Errorf("get metainfo from origin failed: %v", err)
+		return nil, fmt.Errorf("Get metainfo from origin failed: %v", err)
 	}
 	torrentFile := s.GetTorrentFilePath(id)
 	content, err := ioutil.ReadFile(torrentFile)
 	if err != nil {
-		return nil, fmt.Errorf("read metainfo file failed: %v", err)
+		return nil, fmt.Errorf("Read metainfo file failed: %v", err)
 	}
 	return &pb.MetaInfoReply{Metainfo: content}, nil
 }
@@ -352,9 +352,7 @@ func (s *Seeder) StartSeed(ctx context.Context, id string) error {
 
 	p := process.NewProgressDownload(id, int(tt.Info().TotalLength()), os.Stdout)
 	if p != nil {
-		log.Debugf("Waiting bt download %s complete", id)
 		p.WaitComplete(ctx, tt)
-		log.Infof("Bt download %s completed", id)
 	}
 
 	return nil
