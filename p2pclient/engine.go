@@ -168,6 +168,9 @@ func (e *BtEngine) GetTorrentFromSeeder(req *http.Request, blobUrl string) ([]by
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	metaInfo, err := e.metaInfoClient.GetMetaInfo(ctx, &pb.MetaInfoRequest{Url: req.URL.Path})
+	if err != nil {
+		return nil, err
+	}
 	return metaInfo.Metainfo, err
 }
 
@@ -327,8 +330,10 @@ func (e *BtEngine) createTorrent(id string) error {
 	if err != nil {
 		return fmt.Errorf("Create torrent file for %s failed: %v", f, err)
 	}
+	var announceList [][]string
+	announceList = append(announceList, e.trackers)
 	mi := metainfo.MetaInfo{
-		Announce: e.trackers[0],
+		AnnounceList: announceList,
 	}
 	mi.SetDefaults()
 	mi.InfoBytes, err = bencode.Marshal(&info)

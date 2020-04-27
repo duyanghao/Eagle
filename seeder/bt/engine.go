@@ -376,8 +376,10 @@ func (s *Seeder) createTorrent(id string) error {
 	if err != nil {
 		return fmt.Errorf("Create torrent file for %s failed: %v", f, err)
 	}
+	var announceList [][]string
+	announceList = append(announceList, s.trackers)
 	mi := metainfo.MetaInfo{
-		Announce: s.trackers[0],
+		AnnounceList: announceList,
 	}
 	mi.SetDefaults()
 	mi.InfoBytes, err = bencode.Marshal(&info)
