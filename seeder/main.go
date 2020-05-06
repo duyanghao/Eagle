@@ -71,7 +71,8 @@ func init() {
 		c.CacheLimitSize *= 1024 * 1024 * 1024 * 1024
 	}
 	log.Debugf("cache limit size: %d", c.CacheLimitSize)
-	seeder, err := bt.NewSeeder(argRootDataDir, argStorageBackend, argOrigin, trackers, c)
+	var err error
+	seeder, err = bt.NewSeeder(argRootDataDir, argStorageBackend, argOrigin, trackers, c)
 	if err != nil {
 		log.Fatal(err)
 	}

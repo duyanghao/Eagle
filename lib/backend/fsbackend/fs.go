@@ -86,5 +86,5 @@ func (fs *Storage) GetDataDir() string {
 }
 
 func (fs *Storage) GetTorrentDir() string {
-	return path.Join(fs.config.RootDirectory, "torrent")
+	return path.Join(fs.config.RootDirectory, "torrents")
 }
