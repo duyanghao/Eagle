@@ -21,6 +21,7 @@ var (
 	argLimitSize       string
 	argDownloadTimeout int
 	seeder             *bt.Seeder
+	argStorageBackend  string
 )
 
 func main() {
@@ -46,6 +47,7 @@ func init() {
 	flag.BoolVar(&argVerbose, "verbose", false, "verbose")
 	flag.StringVar(&argLimitSize, "limitsize", "100G", "disk cache limit,format:xxxT/G")
 	flag.IntVar(&argDownloadTimeout, "timeout", 30, "seeder download from origin timeout(s)")
+	flag.StringVar(&argStorageBackend, "backend", "fs", "seeder storage backend")
 	flag.Parse()
 	if argVerbose {
 		log.SetLevel(log.DebugLevel)
@@ -69,8 +71,11 @@ func init() {
 		c.CacheLimitSize *= 1024 * 1024 * 1024 * 1024
 	}
 	log.Debugf("cache limit size: %d", c.CacheLimitSize)
-	seeder = bt.NewSeeder(argRootDataDir, argOrigin, trackers, c)
-	err := seeder.Run()
+	seeder, err := bt.NewSeeder(argRootDataDir, argStorageBackend, argOrigin, trackers, c)
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = seeder.Run()
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -19,6 +18,8 @@ import (
 	"github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/bencode"
 	"github.com/anacrolix/torrent/metainfo"
+	"github.com/duyanghao/eagle/lib/backend"
+	"github.com/duyanghao/eagle/lib/backend/fsbackend"
 	"github.com/duyanghao/eagle/pkg/utils/lrucache"
 	"github.com/duyanghao/eagle/pkg/utils/process"
 	distdigests "github.com/opencontainers/go-digest"
@@ -46,17 +47,12 @@ type Seeder struct {
 	httpClient *http.Client
 	config     *Config
 	idInfos    map[string]*torrent.Torrent // layer digest -> Torrent
-	rootDir    string
 	trackers   []string
 	origin     string
-
-	torrentDir string
-	dataDir    string
+	storage    backend.Storage
 }
 
-func NewSeeder(root, origin string, trackers []string, c *Config) *Seeder {
-	dataDir := path.Join(root, "data")
-	torrentDir := path.Join(root, "torrents")
+func NewSeeder(root, storage, origin string, trackers []string, c *Config) (*Seeder, error) {
 	if c == nil {
 		c = &Config{
 			EnableUpload:      true,
@@ -66,14 +62,17 @@ func NewSeeder(root, origin string, trackers []string, c *Config) *Seeder {
 			DownloadRateLimit: DefaultDownloadRateLimit,
 		}
 	}
+	// Create storage backend
+	backendCfg := fsbackend.Config{RootDirectory: root}
+	s, err := backend.GetStorageBackend(storage, backendCfg, nil)
+	if err != nil {
+		return nil, err
+	}
 	return &Seeder{
-		rootDir:    root,
-		trackers:   trackers,
-		origin:     origin,
-		dataDir:    dataDir,
-		torrentDir: torrentDir,
-		config:     c,
-		idInfos:    make(map[string]*torrent.Torrent),
+		trackers: trackers,
+		origin:   origin,
+		config:   c,
+		idInfos:  make(map[string]*torrent.Torrent),
 		httpClient: &http.Client{
 			Transport: &http.Transport{
 				Proxy: http.ProxyFromEnvironment,
@@ -87,29 +86,18 @@ func NewSeeder(root, origin string, trackers []string, c *Config) *Seeder {
 				IdleConnTimeout:     90 * time.Second,
 			},
 		},
-	}
+		storage: s,
+	}, nil
 }
 
 func (s *Seeder) Run() error {
-	if err := os.MkdirAll(s.dataDir, 0700); err != nil && !os.IsExist(err) {
-		return nil
-	}
-	if err := os.MkdirAll(s.torrentDir, 0700); err != nil && !os.IsExist(err) {
-		return nil
-	}
-
-	if s.client != nil {
-		s.client.Close()
-		time.Sleep(1 * time.Second)
-	}
-
 	c := s.config
 	if c.IncomingPort <= 0 {
 		return fmt.Errorf("Invalid incoming port (%d)", c.IncomingPort)
 	}
 
 	tc := torrent.NewDefaultClientConfig()
-	tc.DataDir = s.dataDir
+	tc.DataDir = s.storage.GetDataDir()
 	tc.NoUpload = !c.EnableUpload
 	tc.Seed = c.EnableSeeding
 	tc.DisableUTP = true
@@ -129,25 +117,26 @@ func (s *Seeder) Run() error {
 		return err
 	}
 
-	files, err := ioutil.ReadDir(s.dataDir)
+	files, err := s.storage.List(s.storage.GetDataDir())
 	if err != nil {
 		return err
 	}
 
 	for _, f := range files {
-		go func(f os.FileInfo) {
-			if filepath.Ext(f.Name()) != ".layer" {
+		go func(f *backend.FileInfo) {
+			if filepath.Ext(f.Name) != ".layer" {
 				return
 			}
-			ss := strings.Split(f.Name(), ".")
+			ss := strings.Split(f.Name, ".")
 			if len(ss) != 2 {
-				log.Errorf("Found invalid layer file %s", f.Name())
+				log.Errorf("Found invalid layer file %s", f.Name)
 				return
 			}
 
 			id := ss[0]
-			tf := s.GetFilePath(id)
-			if _, err = os.Lstat(tf); err != nil {
+			df := s.storage.GetFilePath(id)
+
+			if _, err = s.storage.Stat(df); err != nil {
 				return
 			}
 
@@ -156,7 +145,7 @@ func (s *Seeder) Run() error {
 				return
 			}
 			s.lruCache.CreateIfNotExists(id)
-			s.lruCache.SetComplete(id, f.Size())
+			s.lruCache.SetComplete(id, f.Length)
 		}(f)
 	}
 
@@ -211,8 +200,8 @@ func (s *Seeder) getMetaData(ctx context.Context, reqUrl, id string) (int, error
 	}
 	// step2 - generate layerFile
 	log.Debugf("Start to generate dataFile of layer: %s ...", id)
-	layerFile := s.GetFilePath(id)
-	err = ioutil.WriteFile(layerFile, data, 0644)
+	layerFile := s.storage.GetFilePath(id)
+	err = s.storage.Upload(layerFile, data)
 	if err != nil {
 		return len(data), err
 	}
@@ -224,19 +213,19 @@ func (s *Seeder) getMetaData(ctx context.Context, reqUrl, id string) (int, error
 // getMetaDataSync generates layer file and its relevant torrent only once for each of layer
 func (s *Seeder) getMetaDataSync(reqUrl, id string) error {
 	// get only once each of layer
-	torrentFile := s.GetTorrentFilePath(id)
-	layerFile := s.GetFilePath(id)
+	torrentFile := s.storage.GetTorrentFilePath(id)
+	layerFile := s.storage.GetFilePath(id)
 Loop:
 	entry, exist := s.lruCache.Get(id)
 Execute:
 	if exist {
 		if entry.Completed {
-			if _, err := os.Stat(torrentFile); err != nil {
+			if _, err := s.storage.Stat(torrentFile); err != nil {
 				log.Errorf("Failed to find torrent file of cached layer: %s, try to remove its relevant records", id)
 				s.lruCache.Remove(id)
 				return err
 			}
-			if _, err := os.Stat(layerFile); err != nil {
+			if _, err := s.storage.Stat(layerFile); err != nil {
 				log.Errorf("Failed to find data file of cached layer: %s, try to remove its relevant records", id)
 				s.lruCache.Remove(id)
 				return err
@@ -272,8 +261,8 @@ Execute:
 			size := <-sizeChan
 			if err != nil {
 				log.Errorf("GetMetaData layer: %s failed, %v, try to remove its relevant records ...", id, err)
-				os.Remove(torrentFile)
-				os.Remove(layerFile)
+				s.storage.Delete(torrentFile)
+				s.storage.Delete(layerFile)
 				s.lruCache.Remove(id)
 			} else {
 				log.Infof("GetMetaData layer: %s successfully, try to update status ...", id)
@@ -282,8 +271,8 @@ Execute:
 		case <-time.After(s.config.DownloadTimeout * time.Second):
 			err = fmt.Errorf("GetMetaData layer: %s timeout %s", id, s.config.DownloadTimeout)
 			log.Errorf("GetMetaData layer: %s timeout %s, %v, try to remove its relevant records ...", id, s.config.DownloadTimeout, err)
-			os.Remove(torrentFile)
-			os.Remove(layerFile)
+			s.storage.Delete(torrentFile)
+			s.storage.Delete(layerFile)
 			s.lruCache.Remove(id)
 		}
 		return err
@@ -300,29 +289,18 @@ func (s *Seeder) GetMetaInfo(ctx context.Context, metaInfoReq *pb.MetaInfoReques
 	if err != nil {
 		return nil, fmt.Errorf("Get metainfo from origin failed: %v", err)
 	}
-	torrentFile := s.GetTorrentFilePath(id)
-	content, err := ioutil.ReadFile(torrentFile)
+	torrentFile := s.storage.GetTorrentFilePath(id)
+	content, err := s.storage.Download(torrentFile)
 	if err != nil {
-		return nil, fmt.Errorf("Read metainfo file failed: %v", err)
+		return nil, fmt.Errorf("Download metainfo file failed: %v", err)
 	}
 	return &pb.MetaInfoReply{Metainfo: content}, nil
 }
 
-func (s *Seeder) RootDir() string {
-	return s.rootDir
-}
-
-func (s *Seeder) GetTorrentFilePath(id string) string {
-	return path.Join(s.rootDir, "torrents", id+".torrent")
-}
-
-func (s *Seeder) GetFilePath(id string) string {
-	return path.Join(s.rootDir, "data", id+".layer")
-}
-
+// StartSeed seeds relevant blob
 func (s *Seeder) StartSeed(ctx context.Context, id string) error {
-	tf := s.GetTorrentFilePath(id)
-	if _, err := os.Lstat(tf); err != nil {
+	tf := s.storage.GetTorrentFilePath(id)
+	if _, err := s.storage.Stat(tf); err != nil {
 		// Torrent file not exist, create it
 		log.Debugf("Create torrent file for %s", id)
 		if err = s.createTorrent(id); err != nil {
@@ -364,14 +342,14 @@ func (s *Seeder) DeleteTorrent(id string) {
 
 	// remove data file and torrent file asynchronously
 	go func() {
-		tfn := s.GetTorrentFilePath(id)
-		if err := os.Remove(tfn); err != nil && !os.IsNotExist(err) {
-			log.Errorf("Remove torrent file %s failed: %v", tfn, err)
+		tf := s.storage.GetTorrentFilePath(id)
+		if err := s.storage.Delete(tf); err != nil && !os.IsNotExist(err) {
+			log.Errorf("Remove torrent file %s failed: %v", tf, err)
 		}
 
-		dfn := s.GetFilePath(id)
-		if err := os.Remove(dfn); err != nil && !os.IsNotExist(err) {
-			log.Errorf("Remove layer file %s failed: %v", dfn, err)
+		df := s.storage.GetFilePath(id)
+		if err := s.storage.Delete(df); err != nil && !os.IsNotExist(err) {
+			log.Errorf("Remove layer file %s failed: %v", df, err)
 		}
 	}()
 }
@@ -389,7 +367,7 @@ func (s *Seeder) createTorrent(id string) error {
 	info := metainfo.Info{
 		PieceLength: constants.DefaultMetaInfoPieceLength,
 	}
-	f := s.GetFilePath(id)
+	f := s.storage.GetFilePath(id)
 	err := info.BuildFromFilePath(f)
 	if err != nil {
 		return fmt.Errorf("Create torrent file for %s failed: %v", f, err)
@@ -405,18 +383,13 @@ func (s *Seeder) createTorrent(id string) error {
 		return fmt.Errorf("Create torrent file for %s failed: %v", f, err)
 	}
 
-	tfn := s.GetTorrentFilePath(id)
-	tFile, err := os.Create(tfn)
+	tf := s.storage.GetTorrentFilePath(id)
+	err = s.storage.CreateWithMetaInfo(tf, &mi)
 	if err != nil {
-		return fmt.Errorf("Create torrent file %s failed: %v", tfn, err)
-	}
-	defer tFile.Close()
-
-	if err = mi.Write(tFile); err != nil {
-		return fmt.Errorf("Write torrent file %s failed: %v", tfn, err)
+		return fmt.Errorf("CreateWithMetaInfo for %s failed: %v", tf, err)
 	}
 
-	log.Infof("Create torrent file %s success", tfn)
+	log.Infof("Create torrent file %s success", tf)
 	return nil
 }
 

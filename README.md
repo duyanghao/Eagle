@@ -62,6 +62,7 @@ Eagle uses almost the same components with [kraken](https://github.com/uber/krak
 * Peer optimal arithmetic
 * Push notification mechanism
 * Strong consistency
+* Refactor
 
 ## Refs
 
