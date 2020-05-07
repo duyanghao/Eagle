@@ -41,22 +41,22 @@ type ProxyCfg struct {
 }
 
 type Config struct {
-	clientCfg *ClientCfg `yaml:"clientCfg,omitempty"`
-	proxyCfg  *ProxyCfg  `yaml:"proxyCfg,omitempty"`
+	ClientCfg *ClientCfg `yaml:"ClientCfg,omitempty"`
+	ProxyCfg  *ProxyCfg  `yaml:"proxyCfg,omitempty"`
 }
 
 // validate the configuration
 func (c *Config) validate() error {
-	if c.clientCfg.RootDirectory == "" || len(c.clientCfg.Trackers) == 0 || len(c.clientCfg.Seeders) == 0 ||
-		c.clientCfg.LimitSize == "" || c.clientCfg.Port <= 0 {
+	if c.ClientCfg.RootDirectory == "" || len(c.ClientCfg.Trackers) == 0 || len(c.ClientCfg.Seeders) == 0 ||
+		c.ClientCfg.LimitSize == "" || c.ClientCfg.Port <= 0 {
 		return fmt.Errorf("Invalid eagle client configurations, please check ...")
 	}
-	if !ratelimiter.ValidateRateLimiter(c.clientCfg.DownloadRateLimit) ||
-		!ratelimiter.ValidateRateLimiter(c.clientCfg.UploadRateLimit) ||
-		!ratelimiter.ValidateRateLimiter(c.clientCfg.LimitSize) {
+	if !ratelimiter.ValidateRateLimiter(c.ClientCfg.DownloadRateLimit) ||
+		!ratelimiter.ValidateRateLimiter(c.ClientCfg.UploadRateLimit) ||
+		!ratelimiter.ValidateRateLimiter(c.ClientCfg.LimitSize) {
 		return fmt.Errorf("Invalid ratelimiter format, please check ...")
 	}
-	if c.proxyCfg.Port <= 0 {
+	if c.ProxyCfg.Port <= 0 {
 		return fmt.Errorf("Invalid proxy configurations, please check ...")
 	}
 	// TODO: other configuration validate ...

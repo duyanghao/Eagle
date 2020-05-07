@@ -51,7 +51,7 @@ func Run(flags *Flags) {
 	log.Infof("Load config %s successfully", flags.ConfigFile)
 
 	// set log level
-	if config.proxyCfg.Verbose {
+	if config.ProxyCfg.Verbose {
 		log.SetLevel(log.DebugLevel)
 	} else {
 		log.SetLevel(log.InfoLevel)
@@ -62,14 +62,14 @@ func Run(flags *Flags) {
 	c := &eagleclient.Config{
 		EnableUpload:      true,
 		EnableSeeding:     true,
-		IncomingPort:      config.clientCfg.Port,
-		DownloadTimeout:   time.Duration(config.clientCfg.DownloadTimeout),
-		UploadRateLimit:   ratelimiter.RateConvert(config.clientCfg.UploadRateLimit),
-		DownloadRateLimit: ratelimiter.RateConvert(config.clientCfg.DownloadRateLimit),
-		CacheLimitSize:    ratelimiter.RateConvert(config.clientCfg.LimitSize),
+		IncomingPort:      config.ClientCfg.Port,
+		DownloadTimeout:   time.Duration(config.ClientCfg.DownloadTimeout),
+		UploadRateLimit:   ratelimiter.RateConvert(config.ClientCfg.UploadRateLimit),
+		DownloadRateLimit: ratelimiter.RateConvert(config.ClientCfg.DownloadRateLimit),
+		CacheLimitSize:    ratelimiter.RateConvert(config.ClientCfg.LimitSize),
 	}
-	eagleClient := eagleclient.NewBtEngine(config.clientCfg.RootDirectory, config.clientCfg.Trackers, config.clientCfg.Seeders, c)
-	proxyRoundTripper := transport.NewProxyRoundTripper(eagleClient, config.proxyCfg.Rules)
+	eagleClient := eagleclient.NewBtEngine(config.ClientCfg.RootDirectory, config.ClientCfg.Trackers, config.ClientCfg.Seeders, c)
+	proxyRoundTripper := transport.NewProxyRoundTripper(eagleClient, config.ProxyCfg.Rules)
 	err = proxyRoundTripper.P2PClient.Run()
 	if err != nil {
 		log.Fatal("Start eagleClient failure: %v", err)
@@ -80,11 +80,11 @@ func Run(flags *Flags) {
 	routes.InitMux()
 
 	// start proxy
-	log.Infof("Launch proxy on port: %d", config.proxyCfg.Port)
-	if config.proxyCfg.CertFile != "" && config.proxyCfg.KeyFile != "" {
-		err = http.ListenAndServeTLS(fmt.Sprintf(":%d", config.proxyCfg.Port), config.proxyCfg.CertFile, config.proxyCfg.KeyFile, nil)
+	log.Infof("Launch proxy on port: %d", config.ProxyCfg.Port)
+	if config.ProxyCfg.CertFile != "" && config.ProxyCfg.KeyFile != "" {
+		err = http.ListenAndServeTLS(fmt.Sprintf(":%d", config.ProxyCfg.Port), config.ProxyCfg.CertFile, config.ProxyCfg.KeyFile, nil)
 	} else {
-		err = http.ListenAndServe(fmt.Sprintf(":%d", config.proxyCfg.Port), nil)
+		err = http.ListenAndServe(fmt.Sprintf(":%d", config.ProxyCfg.Port), nil)
 	}
 	if err != nil {
 		log.Fatal(err)

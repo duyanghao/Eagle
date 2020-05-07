@@ -48,21 +48,21 @@ func Run(flags *Flags) {
 	}
 	log.Infof("Load config %s successfully", flags.ConfigFile)
 	// set log level
-	if config.daemonCfg.Verbose {
+	if config.DaemonCfg.Verbose {
 		log.SetLevel(log.DebugLevel)
 	} else {
 		log.SetLevel(log.InfoLevel)
 	}
 	// start seeder bt
-	log.Infof("Start seeder bt on port: %s ...", config.seederCfg.Port)
+	log.Infof("Start seeder bt on port: %s ...", config.SeederCfg.Port)
 	c := &bt.Config{
 		EnableUpload:    true,
 		EnableSeeding:   true,
-		IncomingPort:    config.seederCfg.Port,
-		DownloadTimeout: time.Duration(config.seederCfg.DownloadTimeout),
-		CacheLimitSize:  ratelimiter.RateConvert(config.seederCfg.LimitSize),
+		IncomingPort:    config.SeederCfg.Port,
+		DownloadTimeout: time.Duration(config.SeederCfg.DownloadTimeout),
+		CacheLimitSize:  ratelimiter.RateConvert(config.SeederCfg.LimitSize),
 	}
-	seeder, err := bt.NewSeeder(config.seederCfg.RootDirectory, config.seederCfg.StorageBackend, config.seederCfg.Origin, config.seederCfg.Trackers, c)
+	seeder, err := bt.NewSeeder(config.SeederCfg.RootDirectory, config.SeederCfg.StorageBackend, config.SeederCfg.Origin, config.SeederCfg.Trackers, c)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -70,11 +70,11 @@ func Run(flags *Flags) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	log.Infof("Start seeder bt on port: %s successfully", config.seederCfg.Port)
+	log.Infof("Start seeder bt on port: %s successfully", config.SeederCfg.Port)
 
 	// start seeder
-	log.Infof("Launch seeder on port: %s", config.daemonCfg.Port)
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%s", config.daemonCfg.Port))
+	log.Infof("Launch seeder on port: %s", config.DaemonCfg.Port)
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%s", config.DaemonCfg.Port))
 	if err != nil {
 		log.Fatalf("Failed to listen: %v", err)
 	}

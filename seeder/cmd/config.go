@@ -37,20 +37,20 @@ type DaemonCfg struct {
 }
 
 type Config struct {
-	seederCfg *SeederCfg `yaml:"seederCfg,omitempty"`
-	daemonCfg *DaemonCfg `yaml:"daemonCfg,omitempty"`
+	SeederCfg *SeederCfg `yaml:"SeederCfg,omitempty"`
+	DaemonCfg *DaemonCfg `yaml:"daemonCfg,omitempty"`
 }
 
 // validate the configuration
 func (c *Config) validate() error {
-	if c.seederCfg.RootDirectory == "" || c.seederCfg.Origin == "" || c.seederCfg.Port <= 0 ||
-		len(c.seederCfg.Trackers) == 0 || c.seederCfg.StorageBackend == "" {
+	if c.SeederCfg.RootDirectory == "" || c.SeederCfg.Origin == "" || c.SeederCfg.Port <= 0 ||
+		len(c.SeederCfg.Trackers) == 0 || c.SeederCfg.StorageBackend == "" {
 		return fmt.Errorf("Invalid seeder configurations, please check ...")
 	}
-	if !ratelimiter.ValidateRateLimiter(c.seederCfg.LimitSize) {
+	if !ratelimiter.ValidateRateLimiter(c.SeederCfg.LimitSize) {
 		return fmt.Errorf("Invalid rate limiter format, please check ...")
 	}
-	if c.daemonCfg.Port <= 0 {
+	if c.DaemonCfg.Port <= 0 {
 		return fmt.Errorf("Invalid daemon configurations, please check ...")
 	}
 	// TODO: other configuration validate ...
