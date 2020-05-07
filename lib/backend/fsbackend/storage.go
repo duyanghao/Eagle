@@ -49,7 +49,12 @@ type Storage struct {
 // Option allows setting optional Client parameters.
 type Option func(storage *Storage)
 
-// NewStorage creates a new Client for S3.
+// WithS3 configures a Storage with a custom config implementation.
+func WithS3(config Config) Option {
+	return func(storage *Storage) { storage.config = config }
+}
+
+// NewStorage creates a new Storage for file system.
 func NewStorage(
 	config Config, opts ...Option) (*Storage, error) {
 
