@@ -42,7 +42,7 @@ The principle of eagle is kept as simple as possible and can be illustrated as f
 
 Dragonfly provides many great features, such as `interruption resuming capability`, `Host level speed limit` and so on, which makes it the most popular p2p based image distribution solution. And more recently it becomes the [CNCF Incubating Project](https://www.cncf.io/projects/).  
 
-Ohe drawback of Dragonfly is that it does'nt support high-availability, and its central supernode design makes performance degrade linearly as either blob size or cluster size increases.     
+One drawback of Dragonfly is that it does'nt support high-availability, and its central supernode design makes performance degrade linearly as either blob size or cluster size increases.     
 
 ## [kraken from uber](https://github.com/uber/kraken)
 
