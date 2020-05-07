@@ -12,4 +12,4 @@ fi
 
 echo "Start p2p-proxy now ..."
 make src.build
-./build/proxy  -rootdir /data/bt/proxy -seeders x.x.x.x:65005 -trackers http://x.x.x.x:6969/announce -rule x.x.x.x -verbose >> ./p2p-proxy.log 2>&1 &
+./build/proxy -config examples/proxy/config.yaml >> ./p2p-proxy.log 2>&1 &

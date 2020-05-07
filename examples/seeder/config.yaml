@@ -1,0 +1,11 @@
+seederCfg:
+  rootDirectory: /data/bt/seeder
+  origin: x.x.x.x
+  trackers: http://x.x.x.x:6969/announce
+  limitSize: 1T
+  downloadTimeout: 30
+  storageBackend: fs
+  port: 50017
+daemonCfg:
+  port: 65005
+  verbose: true

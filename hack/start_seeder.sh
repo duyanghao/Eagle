@@ -12,4 +12,4 @@ fi
 
 echo "Start p2p-seeder now ..."
 make src.build
-./build/seeder -rootdir /data/bt/seeder -trackers http://x.x.x.x:6969/announce -verbose >> ./p2p-seeder.log 2>&1 &
+./build/seeder -config examples/seeder/config.yaml >> ./p2p-seeder.log 2>&1 &
