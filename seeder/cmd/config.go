@@ -37,7 +37,7 @@ type DaemonCfg struct {
 }
 
 type Config struct {
-	SeederCfg *SeederCfg `yaml:"SeederCfg,omitempty"`
+	SeederCfg *SeederCfg `yaml:"seederCfg,omitempty"`
 	DaemonCfg *DaemonCfg `yaml:"daemonCfg,omitempty"`
 }
 

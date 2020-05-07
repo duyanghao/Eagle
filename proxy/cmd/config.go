@@ -41,7 +41,7 @@ type ProxyCfg struct {
 }
 
 type Config struct {
-	ClientCfg *ClientCfg `yaml:"ClientCfg,omitempty"`
+	ClientCfg *ClientCfg `yaml:"clientCfg,omitempty"`
 	ProxyCfg  *ProxyCfg  `yaml:"proxyCfg,omitempty"`
 }
 
