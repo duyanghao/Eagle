@@ -74,7 +74,7 @@ func Run(flags *Flags) {
 
 	// start seeder
 	log.Infof("Launch seeder on port: %s", config.DaemonCfg.Port)
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%s", config.DaemonCfg.Port))
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", config.DaemonCfg.Port))
 	if err != nil {
 		log.Fatalf("Failed to listen: %v", err)
 	}
