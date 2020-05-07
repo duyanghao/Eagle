@@ -1,4 +1,4 @@
-package p2pclient
+package eagleclient
 
 import (
 	"bytes"
@@ -29,8 +29,8 @@ type Config struct {
 	EnableUpload      bool
 	EnableSeeding     bool
 	IncomingPort      int
-	UploadRateLimit   int
-	DownloadRateLimit int
+	UploadRateLimit   int64
+	DownloadRateLimit int64
 	CacheLimitSize    int64
 	DownloadTimeout   time.Duration
 }

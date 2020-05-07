@@ -20,8 +20,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/duyanghao/eagle/p2pclient/balancer/connectivity"
-	"github.com/duyanghao/eagle/p2pclient/balancer/picker"
+	"github.com/duyanghao/eagle/eagleclient/balancer/connectivity"
+	"github.com/duyanghao/eagle/eagleclient/balancer/picker"
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc/balancer"

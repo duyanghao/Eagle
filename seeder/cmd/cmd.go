@@ -3,12 +3,12 @@ package cmd
 import (
 	"flag"
 	"fmt"
+	"github.com/duyanghao/eagle/pkg/utils/ratelimiter"
 	pb "github.com/duyanghao/eagle/proto/metainfo"
 	"github.com/duyanghao/eagle/seeder/bt"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"net"
-	"strconv"
 	"time"
 )
 
@@ -47,16 +47,7 @@ func Run(flags *Flags) {
 		EnableSeeding:   true,
 		IncomingPort:    config.seederCfg.Port,
 		DownloadTimeout: time.Duration(config.seederCfg.DownloadTimeout),
-	}
-	// transform cache limit size
-	limitSize := config.seederCfg.LimitSize
-	switch limitSize[len(limitSize)-1:] {
-	case "G":
-		c.CacheLimitSize, _ = strconv.ParseInt(limitSize[:len(limitSize)-1], 10, 64)
-		c.CacheLimitSize *= 1024 * 1024 * 1024
-	case "T":
-		c.CacheLimitSize, _ = strconv.ParseInt(limitSize[:len(limitSize)-1], 10, 64)
-		c.CacheLimitSize *= 1024 * 1024 * 1024 * 1024
+		CacheLimitSize:  ratelimiter.RateConvert(config.seederCfg.LimitSize),
 	}
 	seeder, err := bt.NewSeeder(config.seederCfg.RootDirectory, config.seederCfg.StorageBackend, config.seederCfg.Origin, config.seederCfg.Trackers, c)
 	if err != nil {

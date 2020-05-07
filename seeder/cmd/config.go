@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 
+	"github.com/duyanghao/eagle/pkg/utils/ratelimiter"
 	"gopkg.in/yaml.v2"
 )
 
@@ -30,8 +31,11 @@ type Config struct {
 // validate the configuration
 func (c *Config) validate() error {
 	if c.seederCfg.RootDirectory == "" || c.seederCfg.Origin == "" || c.seederCfg.Port <= 0 ||
-		len(c.seederCfg.Trackers) == 0 || c.seederCfg.LimitSize == "" || c.seederCfg.StorageBackend == "" {
+		len(c.seederCfg.Trackers) == 0 || c.seederCfg.StorageBackend == "" {
 		return fmt.Errorf("Invalid seeder configurations, please check ...")
+	}
+	if !ratelimiter.ValidateRateLimiter(c.seederCfg.LimitSize) {
+		return fmt.Errorf("Invalid rate limiter format, please check ...")
 	}
 	if c.daemonCfg.Port <= 0 {
 		return fmt.Errorf("Invalid daemon configurations, please check ...")
