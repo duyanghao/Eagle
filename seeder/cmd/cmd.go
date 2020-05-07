@@ -54,7 +54,7 @@ func Run(flags *Flags) {
 		log.SetLevel(log.InfoLevel)
 	}
 	// start seeder bt
-	log.Infof("Start seeder bt on port: %s ...", config.SeederCfg.Port)
+	log.Infof("Start seeder bt on port: %d ...", config.SeederCfg.Port)
 	c := &bt.Config{
 		EnableUpload:    true,
 		EnableSeeding:   true,
@@ -70,10 +70,10 @@ func Run(flags *Flags) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	log.Infof("Start seeder bt on port: %s successfully", config.SeederCfg.Port)
+	log.Infof("Start seeder bt on port: %d successfully", config.SeederCfg.Port)
 
 	// start seeder
-	log.Infof("Launch seeder on port: %s", config.DaemonCfg.Port)
+	log.Infof("Launch seeder on port: %d", config.DaemonCfg.Port)
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", config.DaemonCfg.Port))
 	if err != nil {
 		log.Fatalf("Failed to listen: %v", err)
