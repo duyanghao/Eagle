@@ -1,7 +1,7 @@
 clientCfg:
   rootDirectory: /data/bt/proxy
   trackers: http://x.x.x.x:6969/announce
-  seeders: x.x.x.x:75008
+  seeders: x.x.x.x:55008
   limitSize: 100G
   downloadRateLimit: 50M
   uploadRateLimit: 50M

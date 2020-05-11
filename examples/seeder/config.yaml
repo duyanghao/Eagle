@@ -7,5 +7,5 @@ seederCfg:
   storageBackend: fs
   port: 61008
 daemonCfg:
-  port: 75008
+  port: 55008
   verbose: true
