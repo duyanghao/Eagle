@@ -11,5 +11,5 @@ if [ $item -eq 1 ]; then
 fi
 
 echo "Start p2p-seeder now ..."
-make src.build
+make build
 ./build/seeder -config examples/seeder/config.yaml >> ./p2p-seeder.log 2>&1 &

@@ -1,14 +1,14 @@
 clientCfg:
   rootDirectory: /data/bt/proxy
   trackers: http://x.x.x.x:6969/announce
-  seeders: x.x.x.x:65005
+  seeders: x.x.x.x:75008
   limitSize: 100G
   downloadRateLimit: 50M
   uploadRateLimit: 50M
   downloadTimeout: 30
-  port: 50007
+  port: 61007
 proxyCfg:
-  port: 65001
+  port: 43002
   verbose: true
   rules: x.x.x.x
   certFile:

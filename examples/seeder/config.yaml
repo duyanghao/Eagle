@@ -5,7 +5,7 @@ seederCfg:
   limitSize: 1T
   downloadTimeout: 30
   storageBackend: fs
-  port: 50017
+  port: 61008
 daemonCfg:
-  port: 65005
+  port: 75008
   verbose: true
