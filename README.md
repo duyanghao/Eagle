@@ -36,6 +36,14 @@ The principle of eagle is kept as simple as possible and can be illustrated as f
 - Origin
   - Docker Distribution
 
+## Workflow
+
+The workflow of Eagle shows below:
+
+![](docs/images/eagle_process.png)
+
+For a more detailed description of Eagle design, refer to [design document](docs/design/design.md). 
+
 # Comparison With Other Projects
 
 ## [Dragonfly from Alibaba](https://github.com/dragonflyoss/Dragonfly)

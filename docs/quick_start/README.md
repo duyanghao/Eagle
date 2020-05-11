@@ -58,7 +58,7 @@ $ cat << EOF > /etc/systemd/system/docker.service.d/http-proxy.conf
 [Service]
 Environment="HTTP_PROXY=http://x.x.x.x:43002"
 EOF
-$ cat << EOF > /etc/systemd/system/docker.service.d/https-proxys.conf
+$ cat << EOF > /etc/systemd/system/docker.service.d/https-proxy.conf
 [Service]
 Environment="HTTPS_PROXY=http://x.x.x.x:43002"
 EOF
