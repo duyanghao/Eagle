@@ -40,7 +40,7 @@ The principle of eagle is kept as simple as possible and can be illustrated as f
 
 The workflow of Eagle shows below:
 
-![](docs/images/eagle_process.png)
+![](docs/images/eagle_process.svg)
 
 For a more detailed description of Eagle design, refer to [design document](docs/design/design.md). 
 

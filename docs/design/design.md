@@ -30,7 +30,7 @@ When receiving torrent request from EagleClient, Seeder first checks whether or 
 
 The request process of Eagle shows below:
 
-![](../images/eagle_process.png)
+![](../images/eagle_process.svg)
 
 And the architecture of Eagle can be illustrated as follows:
 
