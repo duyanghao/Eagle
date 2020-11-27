@@ -5,6 +5,8 @@ Eagle is a lightweight and intelligent p2p based docker image distribution syste
 
 <img src="https://github.com/duyanghao/eagle/blob/master/docs/images/logo.png" width=200px/>
 
+There is a [document](docs/eagle.pptx) that gives a broad overview of eagle internal implementation. Have a look at it first. 
+
 # Features
 
 * Non-invasive: Eagle can seamlessly support docker for distributing images. 
