@@ -17,6 +17,10 @@ There is a [document](docs/eagle.pptx) that gives a broad overview of eagle inte
 * LRUCache delete policy: Both Seeder and EagleClient achieves the LRUCache delete policy.
 * Lightweight: Eagle consists of only several necessary components, which makes it understandable, maintainable and easy-to-use.
 
+# QuickStart 
+
+[Eagle Quick Start](https://github.com/duyanghao/Eagle/tree/master/docs/quick_start) document aims to have a quick start Eagle journey.
+
 # Architecture
 
 The principle of eagle is kept as simple as possible and can be illustrated as follows:
