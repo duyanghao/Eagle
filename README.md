@@ -68,6 +68,14 @@ Eagle uses almost the same components with [kraken](https://github.com/uber/krak
 
 In my opinion, both Dragonfly and Kraken are a good option inside a large, established enterprise since each of them is complicated enough and has its own set of advantages. However I would recommend the Eagle if you want a more flexible and lightweight solution since eagle is absolutely more compact, simple and maintainable compared with them.     
 
+## Contributing
+
+Welcome to [contribute](./CONTRIBUTING.md) and improve Eagle.
+
+## License
+
+[**LICENSE**](./LICENSE)
+
 ## TODO
 
 * Peer optimal arithmetic
