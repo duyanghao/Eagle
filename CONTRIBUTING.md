@@ -8,7 +8,7 @@ Eagle follows the [CNCF Code of Conduct](https://github.com/cncf/foundation/blob
 
 # Email and chat
 
-- Email: [Eagle-email](1294057873@qq.com)
+- Email: 1294057873@qq.com
 
 ## Getting started
 
